@@ -29,46 +29,60 @@
                 },
                 [
                     {
-                        "User": {
-                            "ResetMessages": "LoopValue"
-                        }
-                    },
-                    {
-                        "User": {
-                            "AddUserMessage": [
-                                "LoopValue",
-                                {
-                                    "Variable": "LoopValue"
+                        "Sequence": [
+                            {
+                                "User": {
+                                    "ResetMessages": "LoopValue"
                                 }
-                            ]
-                        }
-                    },
-                    {
-                        "User": {
-                            "Prompt": {
-                                "Variable": "LoopValue"
+                            },
+                            {
+                                "User": {
+                                    "AddUserMessage": [
+                                        "LoopValue",
+                                        {
+                                            "Simple": "Be concise and provide just the name of the city."
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "User": {
+                                    "AddUserMessage": [
+                                        "LoopValue",
+                                        {
+                                            "Variable": "LoopValue"
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "User": {
+                                    "Prompt": {
+                                        "Variable": "LoopValue"
+                                    }
+                                }
+                            },
+                            {
+                                "User": {
+                                    "AddUserMessage": [
+                                        "Accumulator",
+                                        {
+                                            "Variable": "LastOutput"
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "User": {
+                                    "AddUserMessage": [
+                                        "Accumulator",
+                                        {
+                                            "Simple": " "
+                                        }
+                                    ]
+                                }
                             }
-                        }
-                    },
-                    {
-                        "User": {
-                            "AddUserMessage": [
-                                "Accumulator",
-                                {
-                                    "Variable": "LastOutput"
-                                }
-                            ]
-                        }
-                    },
-                    {
-                        "User": {
-                            "AddUserMessage": [
-                                "Accumulator",
-                                {
-                                    "Simple": " "
-                                }
-                            ]
-                        }
+                        ]
                     }
                 ]
             ]

@@ -53,16 +53,16 @@ impl UnpoweredFunction for Interrogate {
                             self.remaining = self.remaining[index + 1..].to_string();
                         }
                         None => {
-                            self.current.push_str(&self.remaining);
+                            self.current = self.remaining.clone();
                             self.remaining = "".to_string();
                         }
                     }
+                    controller
+                        .text_variables
+                        .insert(VariableId::LoopValue, self.current.clone());
                 }
                 _ => {}
             }
-            controller
-                .text_variables
-                .insert(VariableId::LoopValue, self.current.clone());
             let result = self.wrapped.resume_with(model, controller);
             match result {
                 UnpoweredFunctionState::Complete => {
