@@ -30,7 +30,7 @@ pub fn chat(prompt: Vec<Message>) -> ChatBody {
         logit_bias: None,
         max_tokens: None,
         messages: prompt,
-        model: "".to_string(),
+        model: "dolphin-2.1-mistral-7b.Q4_K_M.gguf".to_string(),
         n: None,
         presence_penalty: None,
         stop: None,

@@ -1,15 +1,26 @@
 use crate::prelude::*;
 
 pub struct Interrogate {
-    subnodes: Vec<BarkFunction>,
-    position: usize,
+    state: InterrogateState,
+    current: String,
+    remaining: String,
+    wrapped: BarkFunction,
+}
+
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+enum InterrogateState {
+    Uninitialized,
+    Waited,
+    NotWaited,
 }
 
 impl Interrogate {
-    pub fn new(subnodes: Vec<BarkFunction>) -> Self {
+    pub fn new(mut wrapped: Vec<BarkFunction>) -> Self {
         Self {
-            subnodes,
-            position: 0,
+            state: InterrogateState::Uninitialized,
+            current: "".to_string(),
+            remaining: "".to_string(),
+            wrapped: wrapped.pop().unwrap(),
         }
     }
 }
@@ -23,15 +34,53 @@ impl UnpoweredFunction for Interrogate {
         model: &Self::Model,
         controller: &mut Self::Controller,
     ) -> UnpoweredFunctionState {
-        while self.position < self.subnodes.len() {
-            let node = &mut self.subnodes[self.position];
-            let result = node.resume_with(model, controller);
+        if self.state == InterrogateState::Uninitialized {
+            let output = controller.text_variables.get(&VariableId::LastOutput);
+            match output {
+                Some(output) => {
+                    self.current = String::new();
+                    self.remaining = output.clone();
+                    self.state = InterrogateState::NotWaited;
+                }
+                None => {
+                    eprintln!("Error: No output found for {:?}", VariableId::LastOutput);
+                    return UnpoweredFunctionState::Failed;
+                }
+            }
+        }
+        while self.remaining.len() > 0 {
+            match self.state {
+                InterrogateState::NotWaited => {
+                    // The node has not waited, so it has completed for the previous output.
+                    let newline = self.remaining.find('\n');
+                    match newline {
+                        Some(index) => {
+                            self.current = self.remaining[..index].to_string();
+                            self.remaining = self.remaining[index + 1..].to_string();
+                        }
+                        None => {
+                            self.current.push_str(&self.remaining);
+                            self.remaining = "".to_string();
+                        }
+                    }
+                }
+                _ => {}
+            }
+            controller
+                .text_variables
+                .insert(VariableId::LoopValue, self.current.clone());
+            let result = self.wrapped.resume_with(model, controller);
             match result {
                 UnpoweredFunctionState::Complete => {
-                    self.position += 1;
+                    self.state = InterrogateState::NotWaited;
                 }
-                _ => {
-                    return result;
+                UnpoweredFunctionState::Waiting => {
+                    self.state = InterrogateState::Waited;
+                    return UnpoweredFunctionState::Waiting;
+                }
+                UnpoweredFunctionState::Failed => {
+                    // XXX: Do we need to reset here?
+                    return UnpoweredFunctionState::Failed;
                 }
             }
         }
@@ -39,8 +88,7 @@ impl UnpoweredFunction for Interrogate {
     }
 
     fn reset(self: &mut Self, model: &Self::Model) {
-        for node in self.subnodes.iter_mut() {
-            node.reset(model);
-        }
+        self.state = InterrogateState::Uninitialized;
+        self.wrapped.reset(model);
     }
 }

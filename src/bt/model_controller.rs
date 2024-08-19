@@ -1,3 +1,5 @@
+use openai_api_rust::Auth;
+
 use crate::prelude::*;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
@@ -22,6 +24,13 @@ pub struct BarkController {
 }
 
 impl BarkController {
+    pub fn new() -> Self {
+        Self {
+            text_variables: HashMap::new(),
+            prompts: HashMap::new(),
+        }
+    }
+
     pub fn get_prompt(&self, prompt: &PromptValue) -> Option<Vec<Message>> {
         match prompt {
             PromptValue::Variable(id) => self.prompts.get(id).cloned(),
@@ -34,6 +43,14 @@ impl BarkController {
 #[derive(Debug, Clone)]
 pub struct BarkModel {
     pub client: OpenAI,
+}
+
+impl BarkModel {
+    pub fn new() -> Self {
+        let auth = Auth::from_env().unwrap();
+        let client = OpenAI::new(auth, &std::env::var("OPENAI_URL").unwrap());
+        Self { client }
+    }
 }
 
 pub type BarkFunction =
