@@ -14,7 +14,13 @@ pub enum VariableId {
 pub enum PromptValue {
     Variable(VariableId),
     SimpleUserMessage(String),
-    HardCoded(Vec<Message>),
+    Chat(Vec<String>),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum TextValue {
+    Variable(VariableId),
+    Simple(String),
 }
 
 #[derive(Default, Debug, Clone)]
@@ -35,7 +41,44 @@ impl BarkController {
         match prompt {
             PromptValue::Variable(id) => self.prompts.get(id).cloned(),
             PromptValue::SimpleUserMessage(s) => Some(vec![user(s)]),
-            PromptValue::HardCoded(messages) => Some(messages.clone()),
+            PromptValue::Chat(messages) => Some(
+                messages
+                    .iter()
+                    .enumerate()
+                    .map(|(i, m)| if i % 2 == 0 { user(m) } else { system(m) })
+                    .collect(),
+            ),
+        }
+    }
+
+    pub fn get_text(&self, text: &TextValue) -> String {
+        match text {
+            TextValue::Variable(id) => self.text_variables.get(id).cloned().unwrap_or_default(),
+            TextValue::Simple(s) => s.clone(),
+        }
+    }
+
+    pub fn add_user_to_prompt(&mut self, id: VariableId, text: TextValue) {
+        let text = self.get_text(&text);
+        let messages = self.prompts.entry(id).or_insert_with(Vec::new);
+        if messages.is_empty()
+            || matches!(messages.last().unwrap().role, openai_api_rust::Role::System)
+        {
+            messages.push(user(&text));
+        } else {
+            messages.last_mut().unwrap().content.push_str(&text);
+        }
+    }
+
+    pub fn add_system_to_prompt(&mut self, id: VariableId, text: TextValue) {
+        let text = self.get_text(&text);
+        let messages = self.prompts.entry(id).or_insert_with(Vec::new);
+        if messages.is_empty()
+            || matches!(messages.last().unwrap().role, openai_api_rust::Role::User)
+        {
+            messages.push(system(&text));
+        } else {
+            messages.last_mut().unwrap().content.push_str(&text);
         }
     }
 }

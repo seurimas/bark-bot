@@ -4,6 +4,7 @@ pub struct Interrogate {
     state: InterrogateState,
     current: String,
     remaining: String,
+    text_value: TextValue,
     wrapped: BarkFunction,
 }
 
@@ -15,11 +16,12 @@ enum InterrogateState {
 }
 
 impl Interrogate {
-    pub fn new(mut wrapped: Vec<BarkFunction>) -> Self {
+    pub fn new(text_value: TextValue, mut wrapped: Vec<BarkFunction>) -> Self {
         Self {
             state: InterrogateState::Uninitialized,
             current: "".to_string(),
             remaining: "".to_string(),
+            text_value,
             wrapped: wrapped.pop().unwrap(),
         }
     }
@@ -35,18 +37,10 @@ impl UnpoweredFunction for Interrogate {
         controller: &mut Self::Controller,
     ) -> UnpoweredFunctionState {
         if self.state == InterrogateState::Uninitialized {
-            let output = controller.text_variables.get(&VariableId::LastOutput);
-            match output {
-                Some(output) => {
-                    self.current = String::new();
-                    self.remaining = output.clone();
-                    self.state = InterrogateState::NotWaited;
-                }
-                None => {
-                    eprintln!("Error: No output found for {:?}", VariableId::LastOutput);
-                    return UnpoweredFunctionState::Failed;
-                }
-            }
+            let output = controller.get_text(&self.text_value);
+            self.current = String::new();
+            self.remaining = output;
+            self.state = InterrogateState::NotWaited;
         }
         while self.remaining.len() > 0 {
             match self.state {

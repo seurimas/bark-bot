@@ -4,7 +4,7 @@ use super::Interrogate;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BarkWrapper {
-    Interrogate,
+    Interrogate(TextValue),
 }
 
 impl UserWrapperDefinition<BarkNode> for BarkWrapper {
@@ -18,7 +18,9 @@ impl UserWrapperDefinition<BarkNode> for BarkWrapper {
     ) -> Box<dyn UnpoweredFunction<Model = BarkModel, Controller = BarkController> + Send + Sync>
     {
         match self {
-            BarkWrapper::Interrogate => Box::new(Interrogate::new(nodes)),
+            BarkWrapper::Interrogate(text_value) => {
+                Box::new(Interrogate::new(text_value.clone(), nodes))
+            }
         }
     }
 }

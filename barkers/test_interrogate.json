@@ -1,0 +1,84 @@
+{
+    "Sequence": [
+        {
+            "User": {
+                "AddUserMessage": [
+                    "Accumulator",
+                    {
+                        "Simple": "I am going to give you a few words. Please explain what they have in common."
+                    }
+                ]
+            }
+        },
+        {
+            "User": {
+                "AddSystemMessage": [
+                    "Accumulator",
+                    {
+                        "Simple": "Okay, go ahead."
+                    }
+                ]
+            }
+        },
+        {
+            "Wrapper": [
+                {
+                    "Interrogate": {
+                        "Simple": "What is the capital of France?\nWhat is the capital of America?\nWhat is the capital of Canada?"
+                    }
+                },
+                [
+                    {
+                        "User": {
+                            "ResetMessages": "LoopValue"
+                        }
+                    },
+                    {
+                        "User": {
+                            "AddUserMessage": [
+                                "LoopValue",
+                                {
+                                    "Variable": "LoopValue"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "User": {
+                            "Prompt": {
+                                "Variable": "LoopValue"
+                            }
+                        }
+                    },
+                    {
+                        "User": {
+                            "AddUserMessage": [
+                                "Accumulator",
+                                {
+                                    "Variable": "LastOutput"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "User": {
+                            "AddUserMessage": [
+                                "Accumulator",
+                                {
+                                    "Simple": " "
+                                }
+                            ]
+                        }
+                    }
+                ]
+            ]
+        },
+        {
+            "User": {
+                "Prompt": {
+                    "Variable": "Accumulator"
+                }
+            }
+        }
+    ]
+}

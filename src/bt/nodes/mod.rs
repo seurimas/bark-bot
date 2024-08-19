@@ -9,15 +9,13 @@ mod wrappers;
 use serde::{Deserialize, Serialize};
 pub use wrappers::*;
 
-use super::{BarkController, BarkModel, PromptValue, VariableId};
+use super::{BarkController, BarkModel, PromptValue, TextValue, VariableId};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BarkNode {
     ResetMessages(VariableId),
-    AddUserMessage(VariableId, String),
-    AddSystemMessage(VariableId, String),
-    AddUserFromVariable(VariableId, VariableId),
-    AddSystemFromVariable(VariableId, VariableId),
+    AddUserMessage(VariableId, TextValue),
+    AddSystemMessage(VariableId, TextValue),
     Prompt(PromptValue),
     Revise(VariableId, PromptValue),
     RequireInResponse(Vec<String>, PromptValue),
@@ -39,12 +37,6 @@ impl UserNodeDefinition for BarkNode {
             }
             BarkNode::AddSystemMessage(id, message) => {
                 Box::new(AddSystemMessage(id.clone(), message.clone()))
-            }
-            BarkNode::AddUserFromVariable(id, variable) => {
-                Box::new(AddUserFromVariable(id.clone(), variable.clone()))
-            }
-            BarkNode::AddSystemFromVariable(id, variable) => {
-                Box::new(AddSystemFromVariable(id.clone(), variable.clone()))
             }
             BarkNode::Prompt(prompt) => Box::new(Prompt(prompt.clone())),
             BarkNode::Revise(id, prompt) => Box::new(Revise(id.clone(), prompt.clone())),
