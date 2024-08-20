@@ -37,18 +37,16 @@ impl UnpoweredFunction for Prompt {
         controller: &mut Self::Controller,
     ) -> UnpoweredFunctionState {
         let prompt = controller.get_prompt(&self.0);
-        if let Some(prompt) = prompt {
-            let (output, result) = unpowered_prompt(prompt.clone(), model);
-            if result == UnpoweredFunctionState::Complete {
-                controller
-                    .text_variables
-                    .insert(VariableId::LastOutput, output);
-            }
-            result
-        } else {
-            eprintln!("Error: No prompt found for {:?}", self.0);
-            UnpoweredFunctionState::Failed
+        if prompt.is_empty() {
+            return UnpoweredFunctionState::Failed;
         }
+        let (output, result) = unpowered_prompt(prompt.clone(), model);
+        if result == UnpoweredFunctionState::Complete {
+            controller
+                .text_variables
+                .insert(VariableId::LastOutput, output);
+        }
+        result
     }
 
     fn reset(self: &mut Self, _model: &Self::Model) {
@@ -69,16 +67,14 @@ impl UnpoweredFunction for Revise {
         controller: &mut Self::Controller,
     ) -> UnpoweredFunctionState {
         let prompt = controller.get_prompt(&self.1);
-        if let Some(prompt) = prompt {
-            let (output, result) = unpowered_prompt(prompt.clone(), model);
-            if result == UnpoweredFunctionState::Complete {
-                controller.text_variables.insert(self.0.clone(), output);
-            }
-            result
-        } else {
-            eprintln!("Error: No prompt found for {:?}", self.1);
-            UnpoweredFunctionState::Failed
+        if prompt.is_empty() {
+            return UnpoweredFunctionState::Failed;
         }
+        let (output, result) = unpowered_prompt(prompt.clone(), model);
+        if result == UnpoweredFunctionState::Complete {
+            controller.text_variables.insert(self.0.clone(), output);
+        }
+        result
     }
 
     fn reset(self: &mut Self, _model: &Self::Model) {
@@ -99,20 +95,21 @@ impl UnpoweredFunction for RequireInResponse {
         controller: &mut Self::Controller,
     ) -> UnpoweredFunctionState {
         let prompt = controller.get_prompt(&self.1);
-        if let Some(prompt) = prompt {
-            let (output, result) = unpowered_prompt(prompt.clone(), model);
-            if result == UnpoweredFunctionState::Complete {
-                if self.0.iter().any(|s| output.to_lowercase().contains(s)) {
-                    UnpoweredFunctionState::Complete
-                } else {
-                    UnpoweredFunctionState::Failed
-                }
+        if prompt.is_empty() {
+            return UnpoweredFunctionState::Failed;
+        }
+        let (output, result) = unpowered_prompt(prompt.clone(), model);
+        if result == UnpoweredFunctionState::Complete {
+            controller
+                .text_variables
+                .insert(VariableId::LastOutput, output.clone());
+            if self.0.iter().any(|s| output.to_lowercase().contains(s)) {
+                UnpoweredFunctionState::Complete
             } else {
-                result
+                UnpoweredFunctionState::Failed
             }
         } else {
-            eprintln!("Error: No prompt found for {:?}", self.1);
-            UnpoweredFunctionState::Failed
+            result
         }
     }
 
@@ -134,20 +131,21 @@ impl UnpoweredFunction for RejectInResponse {
         controller: &mut Self::Controller,
     ) -> UnpoweredFunctionState {
         let prompt = controller.get_prompt(&self.1);
-        if let Some(prompt) = prompt {
-            let (output, result) = unpowered_prompt(prompt.clone(), model);
-            if result == UnpoweredFunctionState::Complete {
-                if self.0.iter().any(|s| output.to_lowercase().contains(s)) {
-                    UnpoweredFunctionState::Failed
-                } else {
-                    UnpoweredFunctionState::Complete
-                }
+        if prompt.is_empty() {
+            return UnpoweredFunctionState::Failed;
+        }
+        let (output, result) = unpowered_prompt(prompt.clone(), model);
+        if result == UnpoweredFunctionState::Complete {
+            controller
+                .text_variables
+                .insert(VariableId::LastOutput, output.clone());
+            if self.0.iter().any(|s| output.to_lowercase().contains(s)) {
+                UnpoweredFunctionState::Failed
             } else {
-                result
+                UnpoweredFunctionState::Complete
             }
         } else {
-            eprintln!("Error: No prompt found for {:?}", self.0);
-            UnpoweredFunctionState::Failed
+            result
         }
     }
 

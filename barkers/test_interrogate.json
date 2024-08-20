@@ -1,26 +1,6 @@
 {
     "Sequence": [
         {
-            "User": {
-                "AddUserMessage": [
-                    "Accumulator",
-                    {
-                        "Simple": "I am going to give you a few words. Please explain what they have in common."
-                    }
-                ]
-            }
-        },
-        {
-            "User": {
-                "AddSystemMessage": [
-                    "Accumulator",
-                    {
-                        "Simple": "Okay, go ahead."
-                    }
-                ]
-            }
-        },
-        {
             "Wrapper": [
                 {
                     "Interrogate": {
@@ -32,26 +12,16 @@
                         "Sequence": [
                             {
                                 "User": {
-                                    "ResetMessages": "LoopValue"
-                                }
-                            },
-                            {
-                                "User": {
-                                    "AddUserMessage": [
+                                    "StartPrompt": [
                                         "LoopValue",
-                                        {
-                                            "Simple": "Be concise and provide just the name of the city."
-                                        }
-                                    ]
-                                }
-                            },
-                            {
-                                "User": {
-                                    "AddUserMessage": [
-                                        "LoopValue",
-                                        {
-                                            "Variable": "LoopValue"
-                                        }
+                                        [
+                                            {
+                                                "UserVar": "LoopValue"
+                                            },
+                                            {
+                                                "User": "Be concise and provide just the city and only the city."
+                                            }
+                                        ]
                                     ]
                                 }
                             },
@@ -64,21 +34,16 @@
                             },
                             {
                                 "User": {
-                                    "AddUserMessage": [
+                                    "ExtendPrompt": [
                                         "Accumulator",
-                                        {
-                                            "Variable": "LastOutput"
-                                        }
-                                    ]
-                                }
-                            },
-                            {
-                                "User": {
-                                    "AddUserMessage": [
-                                        "Accumulator",
-                                        {
-                                            "Simple": " "
-                                        }
+                                        [
+                                            {
+                                                "User": "\n"
+                                            },
+                                            {
+                                                "UserVar": "LastOutput"
+                                            }
+                                        ]
                                     ]
                                 }
                             }
@@ -89,8 +54,110 @@
         },
         {
             "User": {
-                "Prompt": {
-                    "Variable": "Accumulator"
+                "Chat": [
+                    {
+                        "User": "I am going to give you a few terms. Please answer concisely how the terms are related."
+                    },
+                    {
+                        "System": "Okay, go ahead."
+                    },
+                    {
+                        "User": "Here they are:"
+                    },
+                    {
+                        "SubPrompt": "Accumulator"
+                    }
+                ]
+            }
+        },
+        {
+            "RepeatUntilFail": {
+                "Sequence": [
+                    {
+                        "User": {
+                            "PrintLine": {
+                                "Simple": "Let's see if we can simplify our answer..."
+                            }
+                        }
+                    },
+                    {
+                        "User": {
+                            "RequireInResponse": [
+                                [
+                                    "yes",
+                                    "perhaps",
+                                    "of course"
+                                ],
+                                {
+                                    "Chat": [
+                                        {
+                                            "System": "I am on the lookout for overly informative answers to simple questions. Please tell me how I can help."
+                                        },
+                                        {
+                                            "User": "The following is a the answer to the question 'how are these things related': "
+                                        },
+                                        {
+                                            "UserVar": "LastOutput"
+                                        },
+                                        {
+                                            "User": "These are the things that were being asked about:"
+                                        },
+                                        {
+                                            "SubPrompt": "Accumulator"
+                                        },
+                                        {
+                                            "User": "Could this answer be shorter?"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "User": {
+                            "PrintLine": {
+                                "Variable": "LastOutput"
+                            }
+                        }
+                    },
+                    {
+                        "User": {
+                            "Chat": [
+                                {
+                                    "System": "I provide very short answers to questions. Please ask your question."
+                                },
+                                {
+                                    "User": "The following is a the answer to the question 'how are these things related': "
+                                },
+                                {
+                                    "UserVar": "LastOutput"
+                                },
+                                {
+                                    "User": "These are the things that were being asked about:"
+                                },
+                                {
+                                    "SubPrompt": "Accumulator"
+                                },
+                                {
+                                    "User": "Shorten this answer, removing unnecessary details. Your answer must be shorter and with fewer details. Do not forget anything important."
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "User": {
+                            "PrintLine": {
+                                "Variable": "LastOutput"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "User": {
+                "PrintLine": {
+                    "Variable": "LastOutput"
                 }
             }
         }

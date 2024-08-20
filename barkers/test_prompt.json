@@ -1,7 +1,18 @@
 {
-    "User": {
-        "Prompt": {
-            "SimpleUserMessage": "What is the capital of France? Keep your answer concise, providing just the name of the city."
+    "Sequence": [
+        {
+            "User": {
+                "Prompt": {
+                    "Quick": "What is the capital of France? Keep your answer concise, providing just the name of the city."
+                }
+            }
+        },
+        {
+            "User": {
+                "PrintLine": {
+                    "Variable": "LastOutput"
+                }
+            }
         }
-    }
+    ]
 }

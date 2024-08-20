@@ -2,27 +2,6 @@ use openai_api_rust::Auth;
 
 use crate::prelude::*;
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
-pub enum VariableId {
-    LoopValue,
-    Accumulator,
-    LastOutput,
-    User(String),
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum PromptValue {
-    Variable(VariableId),
-    SimpleUserMessage(String),
-    Chat(Vec<String>),
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum TextValue {
-    Variable(VariableId),
-    Simple(String),
-}
-
 #[derive(Default, Debug, Clone)]
 pub struct BarkController {
     pub text_variables: HashMap<VariableId, String>,
@@ -37,17 +16,31 @@ impl BarkController {
         }
     }
 
-    pub fn get_prompt(&self, prompt: &PromptValue) -> Option<Vec<Message>> {
+    pub fn get_prompt(&self, prompt: &PromptValue) -> Vec<Message> {
         match prompt {
-            PromptValue::Variable(id) => self.prompts.get(id).cloned(),
-            PromptValue::SimpleUserMessage(s) => Some(vec![user(s)]),
-            PromptValue::Chat(messages) => Some(
-                messages
-                    .iter()
-                    .enumerate()
-                    .map(|(i, m)| if i % 2 == 0 { user(m) } else { system(m) })
-                    .collect(),
-            ),
+            PromptValue::Variable(id) => self.prompts.get(id).cloned().unwrap_or(vec![]),
+            PromptValue::Quick(s) => vec![user(s)],
+            PromptValue::Chat(messages) => {
+                let mut chat = vec![];
+                for message in messages {
+                    match message {
+                        MessageValue::User(s) => chat.push(user(s)),
+                        MessageValue::System(s) => chat.push(system(s)),
+                        MessageValue::UserVar(id) => chat.push(user(
+                            &self.text_variables.get(id).cloned().unwrap_or_default(),
+                        )),
+                        MessageValue::SystemVar(id) => chat.push(system(
+                            &self.text_variables.get(id).cloned().unwrap_or_default(),
+                        )),
+                        MessageValue::SubPrompt(id) => {
+                            if let Some(sub_prompt) = self.prompts.get(id) {
+                                chat.extend(sub_prompt.clone());
+                            }
+                        }
+                    }
+                }
+                chat
+            }
         }
     }
 
@@ -58,28 +51,17 @@ impl BarkController {
         }
     }
 
-    pub fn add_user_to_prompt(&mut self, id: VariableId, text: TextValue) {
-        let text = self.get_text(&text);
-        let messages = self.prompts.entry(id).or_insert_with(Vec::new);
-        if messages.is_empty()
-            || matches!(messages.last().unwrap().role, openai_api_rust::Role::System)
-        {
-            messages.push(user(&text));
-        } else {
-            messages.last_mut().unwrap().content.push_str(&text);
-        }
+    pub fn start_prompt(&mut self, id: VariableId, messages: Vec<MessageValue>) {
+        let prompt = self.get_prompt(&PromptValue::Chat(messages));
+        self.prompts.insert(id, prompt);
     }
 
-    pub fn add_system_to_prompt(&mut self, id: VariableId, text: TextValue) {
-        let text = self.get_text(&text);
-        let messages = self.prompts.entry(id).or_insert_with(Vec::new);
-        if messages.is_empty()
-            || matches!(messages.last().unwrap().role, openai_api_rust::Role::User)
-        {
-            messages.push(system(&text));
-        } else {
-            messages.last_mut().unwrap().content.push_str(&text);
-        }
+    pub fn extend_prompt(&mut self, id: VariableId, messages: Vec<MessageValue>) {
+        let prompt = self.get_prompt(&PromptValue::Chat(messages));
+        self.prompts
+            .entry(id)
+            .or_insert_with(Vec::new)
+            .extend(prompt);
     }
 }
 
@@ -93,6 +75,22 @@ impl BarkModel {
         let auth = Auth::from_env().unwrap();
         let client = OpenAI::new(auth, &std::env::var("OPENAI_URL").unwrap());
         Self { client }
+    }
+
+    pub fn read_stdin(&self, line_only: bool) -> String {
+        let mut text = String::new();
+        let mut line = String::new();
+        std::io::stdin().read_line(&mut line).unwrap();
+        if line_only {
+            return line;
+        }
+        while !line.is_empty() {
+            text.push_str(&line);
+            line.clear();
+            text.push('\n');
+            std::io::stdin().read_line(&mut line).unwrap();
+        }
+        text
     }
 }
 

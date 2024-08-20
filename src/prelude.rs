@@ -1,6 +1,6 @@
+pub use crate::bt::values::{MessageValue, PromptValue, TextValue, VariableId};
 pub use crate::bt::BarkNode;
 pub use crate::bt::{BarkController, BarkFunction, BarkModel};
-pub use crate::bt::{PromptValue, TextValue, VariableId};
 pub use behavior_bark::unpowered::*;
 
 use openai_api_rust::chat::ChatBody;

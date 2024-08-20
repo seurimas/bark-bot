@@ -1,18 +1,19 @@
 use crate::prelude::*;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct StartPrompt(pub VariableId, pub Vec<MessageValue>);
+pub struct ReadStdio(pub bool, pub VariableId);
 
-impl UnpoweredFunction for StartPrompt {
+impl UnpoweredFunction for ReadStdio {
     type Controller = BarkController;
     type Model = BarkModel;
 
     fn resume_with(
         self: &mut Self,
-        _model: &Self::Model,
+        model: &Self::Model,
         controller: &mut Self::Controller,
     ) -> UnpoweredFunctionState {
-        controller.start_prompt(self.0.clone(), self.1.clone());
+        let value = model.read_stdin(self.0);
+        controller.text_variables.insert(self.1.clone(), value);
         UnpoweredFunctionState::Complete
     }
 
@@ -22,9 +23,9 @@ impl UnpoweredFunction for StartPrompt {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ExtendPrompt(pub VariableId, pub Vec<MessageValue>);
+pub struct PrintLine(pub TextValue);
 
-impl UnpoweredFunction for ExtendPrompt {
+impl UnpoweredFunction for PrintLine {
     type Controller = BarkController;
     type Model = BarkModel;
 
@@ -33,7 +34,7 @@ impl UnpoweredFunction for ExtendPrompt {
         _model: &Self::Model,
         controller: &mut Self::Controller,
     ) -> UnpoweredFunctionState {
-        controller.extend_prompt(self.0.clone(), self.1.clone());
+        println!("{}", controller.get_text(&self.0));
         UnpoweredFunctionState::Complete
     }
 

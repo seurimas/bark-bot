@@ -1,7 +1,5 @@
 use std::env::args;
 
-use behavior_bark::unpowered::UnpoweredFunctionState;
-
 mod bt;
 mod prelude;
 

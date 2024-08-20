@@ -1,6 +1,7 @@
 use crate::prelude::*;
 
-use super::Interrogate;
+mod interrogate;
+pub use interrogate::Interrogate;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BarkWrapper {
