@@ -1,10 +1,24 @@
 use std::env::args;
 
+use rusqlite::{ffi::sqlite3_auto_extension, Connection};
+use sqlite_vec::sqlite3_vec_init;
+use zerocopy::AsBytes;
+
 mod bt;
 mod prelude;
 
 fn main() {
     env_logger::init();
+    unsafe {
+        sqlite3_auto_extension(Some(std::mem::transmute(sqlite3_vec_init as *const ())));
+    }
+    // future database connection will now automatically include sqlite-vec functions!
+    let db = Connection::open_in_memory().unwrap();
+    let vec_version: String = db
+        .query_row("select vec_version()", [], |x| x.get(0))
+        .unwrap();
+
+    println!("vec_version={vec_version}");
 
     let tree_path = args().nth(1).expect("Expected tree argument");
     let tree = std::fs::read_to_string(tree_path).expect("Failed to read tree file");

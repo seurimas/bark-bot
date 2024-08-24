@@ -1,8 +1,13 @@
 mod nodes;
-use behavior_bark::unpowered::UnpoweredTreeDef;
+use behavior_bark::unpowered::{UnpoweredFunction, UnpoweredTreeDef};
 pub use nodes::*;
-mod model_controller;
-pub use model_controller::*;
+mod controller;
+mod model;
+pub use controller::*;
+pub use model::*;
 pub mod values;
 
 pub type BarkDef = UnpoweredTreeDef<BarkNode, BarkWrapper>;
+
+pub type BarkFunction =
+    Box<dyn UnpoweredFunction<Controller = BarkController, Model = BarkModel> + Send + Sync>;
