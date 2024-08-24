@@ -8,21 +8,29 @@ pub use prompting::*;
 mod wrappers;
 use serde::{Deserialize, Serialize};
 pub use wrappers::*;
+mod embedding;
+pub use embedding::*;
 
 use super::{values::*, BarkController, BarkModel};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BarkNode {
+    // Modify prompts.
     StartPrompt(VariableId, Vec<MessageValue>),
     ExtendPrompt(VariableId, Vec<MessageValue>),
+    // Run prompts.
     Chat(Vec<MessageValue>),
     Prompt(PromptValue),
     Revise(VariableId, PromptValue),
+    // Response checks
     RequireInResponse(Vec<String>, PromptValue),
     RejectInResponse(Vec<String>, PromptValue),
+    // STDIO
     ReadLine(VariableId),
     ReadLines(VariableId),
     PrintLine(TextValue),
+    // Embeddings
+    GetEmbedding(TextValue, VariableId),
 }
 
 impl UserNodeDefinition for BarkNode {
@@ -52,6 +60,7 @@ impl UserNodeDefinition for BarkNode {
             BarkNode::ReadLine(id) => Box::new(ReadStdio(true, id.clone())),
             BarkNode::ReadLines(id) => Box::new(ReadStdio(false, id.clone())),
             BarkNode::PrintLine(text) => Box::new(PrintLine(text.clone())),
+            BarkNode::GetEmbedding(text, id) => Box::new(GetEmbedding(text.clone(), id.clone())),
         }
     }
 }

@@ -1,0 +1,14 @@
+{
+    "Sequence": [
+        {
+            "User": {
+                "GetEmbedding": [
+                    {
+                        "Simple": "Represent this sentence for searching relevant passages: What is the capital of France?"
+                    },
+                    "LastOutput"
+                ]
+            }
+        }
+    ]
+}

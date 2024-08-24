@@ -15,4 +15,5 @@ fn main() {
     let mut state = tree.resume_with(&model, &mut controller);
     println!("{:?}", controller.text_variables);
     println!("{:?}", controller.prompts);
+    println!("{:?}", controller.embedding_variables);
 }

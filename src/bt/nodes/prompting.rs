@@ -1,9 +1,7 @@
-use openai_api_rust::chat::ChatApi;
-
 use crate::prelude::*;
 
 fn unpowered_prompt(prompt: Vec<Message>, model: &BarkModel) -> (String, UnpoweredFunctionState) {
-    match model.client.chat_completion_create(&chat(prompt)) {
+    match model.chat_completion_create(&chat(prompt)) {
         Ok(response) => {
             let message = &response.choices[0].message;
             if let Some(message) = message {
