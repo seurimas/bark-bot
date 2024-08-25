@@ -30,4 +30,5 @@ fn main() {
     println!("{:?}", controller.text_variables);
     println!("{:?}", controller.prompts);
     println!("{:?}", controller.embedding_variables);
+    println!("{:?}", state);
 }

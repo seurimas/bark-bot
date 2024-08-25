@@ -1,0 +1,14 @@
+{
+    "Sequence": [
+        {
+            "User": {
+                "PushSimpleEmbedding": [
+                    "test_push.db",
+                    {
+                        "Simple": "The capital of France is Paris."
+                    }
+                ]
+            }
+        }
+    ]
+}

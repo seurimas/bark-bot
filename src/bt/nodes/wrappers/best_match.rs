@@ -2,7 +2,7 @@ use crate::prelude::*;
 
 pub struct BestMatch {
     compared: TextValue,
-    compared_embedding: Vec<f64>,
+    compared_embedding: Vec<f32>,
     text_values: Vec<TextValue>,
     best_index: Option<usize>,
     nodes: Vec<
@@ -20,6 +20,9 @@ impl BestMatch {
             >,
         >,
     ) -> Self {
+        if nodes.len() != text_values.len() {
+            panic!("BestMatch nodes and text_values must have the same length");
+        }
         Self {
             compared,
             compared_embedding: vec![],
@@ -41,7 +44,7 @@ impl UnpoweredFunction for BestMatch {
     ) -> UnpoweredFunctionState {
         if self.compared_embedding.is_empty() {
             let compared_text = controller.get_text(&self.compared);
-            let embedding = model.get_embedding(compared_text);
+            let embedding = model.get_embedding(&compared_text);
             if let Ok(embedding) = embedding {
                 self.compared_embedding = embedding;
             } else {
@@ -49,12 +52,12 @@ impl UnpoweredFunction for BestMatch {
             }
         }
         if self.best_index.is_none() {
-            let mut best_score = f64::INFINITY;
+            let mut best_score = f32::INFINITY;
             let mut best_index = 0;
             for (index, text_value) in self.text_values.iter().enumerate() {
                 let text_value = controller.get_text(text_value);
                 let score = model
-                    .get_embedding(text_value)
+                    .get_embedding(&text_value)
                     .map(|embedding| score(&self.compared_embedding, &embedding));
                 if let Ok(score) = score {
                     if score < best_score {

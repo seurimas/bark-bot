@@ -3,7 +3,7 @@ use crate::prelude::*;
 #[derive(Default, Debug, Clone)]
 pub struct BarkController {
     pub text_variables: HashMap<VariableId, String>,
-    pub embedding_variables: HashMap<VariableId, Vec<f64>>,
+    pub embedding_variables: HashMap<VariableId, Vec<f32>>,
     pub prompts: HashMap<VariableId, Vec<Message>>,
 }
 

@@ -41,7 +41,7 @@ pub fn chat(prompt: Vec<Message>) -> ChatBody {
     }
 }
 
-pub fn score(embed_a: &[f64], embed_b: &[f64]) -> f64 {
+pub fn score(embed_a: &[f32], embed_b: &[f32]) -> f32 {
     let mut sum = 0.0;
     for (a, b) in embed_a.iter().zip(embed_b.iter()) {
         sum += (a - b).powi(2);

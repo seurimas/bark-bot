@@ -1,6 +1,8 @@
+mod db;
 mod io;
 mod messages;
 use behavior_bark::unpowered::{UnpoweredFunction, UnpoweredFunctionState, UserNodeDefinition};
+pub use db::*;
 pub use io::*;
 pub use messages::*;
 mod prompting;
@@ -33,6 +35,10 @@ pub enum BarkNode {
     PrintLine(TextValue),
     // Embeddings
     GetEmbedding(TextValue, VariableId),
+    // Vector database
+    PushSimpleEmbedding(String, TextValue),
+    PushValuedEmbedding(String, TextValue, TextValue),
+    PullBestMatch(String, TextValue),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -86,6 +92,17 @@ impl UserNodeDefinition for BarkNode {
             BarkNode::ReadLines(id) => Box::new(ReadStdio(false, id.clone())),
             BarkNode::PrintLine(text) => Box::new(PrintLine(text.clone())),
             BarkNode::GetEmbedding(text, id) => Box::new(GetEmbedding(text.clone(), id.clone())),
+            BarkNode::PushSimpleEmbedding(path, text) => {
+                Box::new(PushSimpleEmbedding(path.clone(), text.clone()))
+            }
+            BarkNode::PushValuedEmbedding(path, text, values) => Box::new(PushValuedEmbedding(
+                path.clone(),
+                text.clone(),
+                values.clone(),
+            )),
+            BarkNode::PullBestMatch(path, text) => {
+                Box::new(PullBestMatch(path.clone(), text.clone()))
+            }
         }
     }
 }

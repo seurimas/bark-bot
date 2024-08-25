@@ -1,9 +1,9 @@
 use crate::prelude::*;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct GetEmbedding(pub TextValue, pub VariableId);
+pub struct PullBestMatch(pub String, pub TextValue);
 
-impl UnpoweredFunction for GetEmbedding {
+impl UnpoweredFunction for PullBestMatch {
     type Controller = BarkController;
     type Model = BarkModel;
 
@@ -12,14 +12,19 @@ impl UnpoweredFunction for GetEmbedding {
         model: &Self::Model,
         controller: &mut Self::Controller,
     ) -> UnpoweredFunctionState {
-        let text = controller.get_text(&self.0);
+        let text = controller.get_text(&self.1);
         let embedding = model.get_embedding(&text);
         match embedding {
             Ok(embedding) => {
-                controller
-                    .embedding_variables
-                    .insert(self.1.clone(), embedding);
-                UnpoweredFunctionState::Complete
+                if let Ok(best_match) = model.pull_best_match(self.0.clone(), embedding) {
+                    controller
+                        .text_variables
+                        .insert(VariableId::LastOutput, best_match);
+                    UnpoweredFunctionState::Complete
+                } else {
+                    eprintln!("Failed to pull best match");
+                    UnpoweredFunctionState::Failed
+                }
             }
             Err(_) => UnpoweredFunctionState::Failed,
         }

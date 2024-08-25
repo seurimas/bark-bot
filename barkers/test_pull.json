@@ -1,0 +1,14 @@
+{
+    "Sequence": [
+        {
+            "User": {
+                "PullBestMatch": [
+                    "test_push.db",
+                    {
+                        "Simple": "The capital of France is Paris."
+                    }
+                ]
+            }
+        }
+    ]
+}
