@@ -2,18 +2,20 @@ use crate::prelude::*;
 
 fn unpowered_prompt(prompt: Vec<Message>, model: &BarkModel) -> (String, UnpoweredFunctionState) {
     match model.chat_completion_create(&chat(prompt)) {
-        Ok(response) => {
-            let message = &response.choices[0].message;
-            if let Some(message) = message {
-                // XXX: Why do I need to clone here?
-                (
-                    message.content.to_string(),
-                    UnpoweredFunctionState::Complete,
-                )
-            } else {
-                eprintln!("Prompt Error (chat): {:?}", response);
-                ("".to_string(), UnpoweredFunctionState::Failed)
+        Ok(mut response) => {
+            if response.choices.is_empty() {
+                eprintln!("Prompt Error (empty): {:?}", response);
+                return ("".to_string(), UnpoweredFunctionState::Failed);
+            } else if response.choices[0].message.is_none() {
+                eprintln!("Prompt Error (empty message): {:?}", response);
+                return ("".to_string(), UnpoweredFunctionState::Failed);
+            } else if response.choices.len() > 1 {
+                eprintln!("Prompt Warning (multiple choices): {:?}", response);
             }
+            (
+                response.choices.pop().unwrap().message.unwrap().content,
+                UnpoweredFunctionState::Complete,
+            )
         }
         Err(e) => {
             eprintln!("Prompt Error: {:?}", e);

@@ -1,5 +1,3 @@
-use openai_api_rust::{chat::ChatApi, embeddings::EmbeddingsApi, Auth};
-
 use crate::prelude::*;
 
 #[derive(Default, Debug, Clone)]
@@ -50,6 +48,7 @@ impl BarkController {
         match text {
             TextValue::Variable(id) => self.text_variables.get(id).cloned().unwrap_or_default(),
             TextValue::Simple(s) => s.clone(),
+            TextValue::Multi(texts) => texts.iter().map(|t| self.get_text(t)).collect(),
         }
     }
 

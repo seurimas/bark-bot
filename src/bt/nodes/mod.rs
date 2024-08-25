@@ -1,6 +1,6 @@
 mod io;
 mod messages;
-use behavior_bark::unpowered::{UnpoweredFunction, UserNodeDefinition};
+use behavior_bark::unpowered::{UnpoweredFunction, UnpoweredFunctionState, UserNodeDefinition};
 pub use io::*;
 pub use messages::*;
 mod prompting;
@@ -15,6 +15,8 @@ use super::{values::*, BarkController, BarkModel};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BarkNode {
+    // Simple variable operations.
+    SetText(VariableId, TextValue),
     // Modify prompts.
     StartPrompt(VariableId, Vec<MessageValue>),
     ExtendPrompt(VariableId, Vec<MessageValue>),
@@ -33,6 +35,28 @@ pub enum BarkNode {
     GetEmbedding(TextValue, VariableId),
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SetText(pub VariableId, pub TextValue);
+
+impl UnpoweredFunction for SetText {
+    type Controller = BarkController;
+    type Model = BarkModel;
+
+    fn resume_with(
+        self: &mut Self,
+        _model: &Self::Model,
+        controller: &mut Self::Controller,
+    ) -> UnpoweredFunctionState {
+        let text = controller.get_text(&self.1);
+        controller.text_variables.insert(self.0.clone(), text);
+        UnpoweredFunctionState::Complete
+    }
+
+    fn reset(self: &mut Self, _model: &Self::Model) {
+        // Nothing to do
+    }
+}
+
 impl UserNodeDefinition for BarkNode {
     type Controller = BarkController;
     type Model = BarkModel;
@@ -42,6 +66,7 @@ impl UserNodeDefinition for BarkNode {
     ) -> Box<dyn UnpoweredFunction<Model = Self::Model, Controller = Self::Controller> + Send + Sync>
     {
         match self {
+            BarkNode::SetText(id, text) => Box::new(SetText(id.clone(), text.clone())),
             BarkNode::StartPrompt(id, messages) => {
                 Box::new(StartPrompt(id.clone(), messages.clone()))
             }

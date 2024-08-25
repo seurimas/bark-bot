@@ -19,6 +19,7 @@ pub enum PromptValue {
 pub enum TextValue {
     Variable(VariableId),
     Simple(String),
+    Multi(Vec<TextValue>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

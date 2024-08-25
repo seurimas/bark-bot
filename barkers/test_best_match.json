@@ -1,0 +1,160 @@
+{
+    "Sequence": [
+        {
+            "User": {
+                "SetText": [
+                    {
+                        "User": "PreEmbed"
+                    },
+                    {
+                        "Simple": "Represent this sentence for searching relevant passages: "
+                    }
+                ]
+            }
+        },
+        {
+            "Wrapper": [
+                {
+                    "BestMatch": [
+                        {
+                            "Multi": [
+                                {
+                                    "Variable": {
+                                        "User": "PreEmbed"
+                                    }
+                                },
+                                {
+                                    "Simple": "What is the capital of France?"
+                                }
+                            ]
+                        },
+                        [
+                            {
+                                "Simple": "The capital of France is Paris."
+                            },
+                            {
+                                "Simple": "The capital of America is Washington, D.C."
+                            },
+                            {
+                                "Simple": "The capital of Canada is Ottawa."
+                            }
+                        ]
+                    ]
+                },
+                [
+                    {
+                        "User": {
+                            "PrintLine": {
+                                "Variable": "LoopValue"
+                            }
+                        }
+                    },
+                    {
+                        "User": {
+                            "PrintLine": {
+                                "Simple": "Using America instead. What went wrong?"
+                            }
+                        }
+                    },
+                    {
+                        "User": {
+                            "PrintLine": {
+                                "Simple": "Using Canada instead. What went wrong?"
+                            }
+                        }
+                    }
+                ]
+            ]
+        },
+        {
+            "Wrapper": [
+                {
+                    "BestMatch": [
+                        {
+                            "Simple": "Give me the capital of America."
+                        },
+                        [
+                            {
+                                "Simple": "What is the capital of France?"
+                            },
+                            {
+                                "Simple": "What is the capital of America?"
+                            },
+                            {
+                                "Simple": "What is the capital of Canada?"
+                            }
+                        ]
+                    ]
+                },
+                [
+                    {
+                        "User": {
+                            "PrintLine": {
+                                "Simple": "Using France instead. What went wrong?"
+                            }
+                        }
+                    },
+                    {
+                        "User": {
+                            "PrintLine": {
+                                "Simple": "Found the right question!"
+                            }
+                        }
+                    },
+                    {
+                        "User": {
+                            "PrintLine": {
+                                "Simple": "Using Canada instead. What went wrong?"
+                            }
+                        }
+                    }
+                ]
+            ]
+        },
+        {
+            "Wrapper": [
+                {
+                    "BestMatch": [
+                        {
+                            "Simple": "What is this garbage!?"
+                        },
+                        [
+                            {
+                                "Simple": "What is the capital of France?"
+                            },
+                            {
+                                "Simple": "What is the capital of America?"
+                            },
+                            {
+                                "Simple": "What is the capital of Canada?"
+                            }
+                        ]
+                    ]
+                },
+                [
+                    {
+                        "User": {
+                            "PrintLine": {
+                                "Simple": "France is this garbage!"
+                            }
+                        }
+                    },
+                    {
+                        "User": {
+                            "PrintLine": {
+                                "Simple": "America is this garbage!"
+                            }
+                        }
+                    },
+                    {
+                        "User": {
+                            "PrintLine": {
+                                "Simple": "Canada is this garbage!"
+                            }
+                        }
+                    }
+                ]
+            ]
+        }
+    ]
+}

@@ -40,3 +40,12 @@ pub fn chat(prompt: Vec<Message>) -> ChatBody {
         user: None,
     }
 }
+
+pub fn score(embed_a: &[f64], embed_b: &[f64]) -> f64 {
+    let mut sum = 0.0;
+    for (a, b) in embed_a.iter().zip(embed_b.iter()) {
+        sum += (a - b).powi(2);
+    }
+    println!("{}", sum);
+    sum
+}

@@ -1,11 +1,14 @@
 use crate::prelude::*;
 
+mod best_match;
+pub use best_match::BestMatch;
 mod interrogate;
 pub use interrogate::Interrogate;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BarkWrapper {
     Interrogate(TextValue),
+    BestMatch(TextValue, Vec<TextValue>),
 }
 
 impl UserWrapperDefinition<BarkNode> for BarkWrapper {
@@ -21,6 +24,9 @@ impl UserWrapperDefinition<BarkNode> for BarkWrapper {
         match self {
             BarkWrapper::Interrogate(text_value) => {
                 Box::new(Interrogate::new(text_value.clone(), nodes))
+            }
+            BarkWrapper::BestMatch(compared, options) => {
+                Box::new(BestMatch::new(compared.clone(), options.clone(), nodes))
             }
         }
     }
