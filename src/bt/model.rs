@@ -1,4 +1,5 @@
 use openai_api_rust::{chat::ChatApi, embeddings::EmbeddingsApi, Auth};
+
 use rusqlite::{ffi::sqlite3_auto_extension, Connection};
 use sqlite_vec::sqlite3_vec_init;
 use zerocopy::AsBytes;
@@ -7,7 +8,7 @@ use crate::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct BarkModel {
-    pub client: OpenAI,
+    client: OpenAI,
 }
 
 impl BarkModel {
@@ -18,6 +19,7 @@ impl BarkModel {
 
         let auth = Auth::from_env().unwrap();
         let client = OpenAI::new(auth, &std::env::var("OPENAI_URL").unwrap());
+
         Self { client }
     }
 
@@ -26,6 +28,21 @@ impl BarkModel {
         chat: &openai_api_rust::chat::ChatBody,
     ) -> Result<openai_api_rust::completions::Completion, openai_api_rust::Error> {
         self.client.chat_completion_create(chat)
+    }
+
+    pub fn search(&self, query: &str) {
+        let response = ureq::get(
+            format!(
+                "{}?key={}&cx={}&q={}",
+                "https://www.googleapis.com/customsearch/v1",
+                std::env::var("GOOGLE_API_KEY").unwrap(),
+                std::env::var("GOOGLE_CX").unwrap(),
+                query
+            )
+            .as_str(),
+        )
+        .call();
+        println!("{:?}", response);
     }
 
     pub fn get_embedding(&self, text: &String) -> Result<Vec<f32>, openai_api_rust::Error> {

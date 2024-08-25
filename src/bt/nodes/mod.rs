@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize};
 pub use wrappers::*;
 mod embedding;
 pub use embedding::*;
+mod search;
+pub use search::*;
 
 use super::{values::*, BarkController, BarkModel};
 
@@ -40,6 +42,8 @@ pub enum BarkNode {
     PushValuedEmbedding(String, TextValue, TextValue),
     PullBranchByScore(String, TextValue),
     PullBestQueryMatch(String, TextValue),
+    // Search
+    Search(TextValue),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -111,6 +115,7 @@ impl UserNodeDefinition for BarkNode {
                     text.clone(),
                 ]),
             )),
+            BarkNode::Search(text) => Box::new(Search(text.clone())),
         }
     }
 }

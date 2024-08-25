@@ -14,3 +14,4 @@ env_logger = "0.11.0"
 sqlite-vec = "0.1.1"
 rusqlite = { version = "0.32.1", features = ["bundled"] }
 zerocopy = "0.7.35"
+ureq = "2"
