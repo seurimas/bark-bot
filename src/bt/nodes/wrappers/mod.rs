@@ -1,7 +1,7 @@
 use crate::prelude::*;
 
-mod best_match;
-pub use best_match::BestMatch;
+mod branch_by_score;
+pub use branch_by_score::BranchByScore;
 mod interrogate;
 pub use interrogate::Interrogate;
 mod knn;
@@ -10,7 +10,7 @@ pub use knn::Knn;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BarkWrapper {
     Interrogate(TextValue),
-    BestMatch(TextValue, Vec<TextValue>),
+    BranchByScore(TextValue, Vec<TextValue>),
     Knn(String, TextValue, usize),
     KnnQuery(String, TextValue, usize),
 }
@@ -29,8 +29,8 @@ impl UserWrapperDefinition<BarkNode> for BarkWrapper {
             BarkWrapper::Interrogate(text_value) => {
                 Box::new(Interrogate::new(text_value.clone(), nodes))
             }
-            BarkWrapper::BestMatch(compared, options) => {
-                Box::new(BestMatch::new(compared.clone(), options.clone(), nodes))
+            BarkWrapper::BranchByScore(compared, options) => {
+                Box::new(BranchByScore::new(compared.clone(), options.clone(), nodes))
             }
             BarkWrapper::Knn(path, compared, k) => {
                 Box::new(Knn::new(path.clone(), compared.clone(), *k, nodes))

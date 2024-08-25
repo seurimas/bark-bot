@@ -38,7 +38,7 @@ pub enum BarkNode {
     // Vector database
     PushSimpleEmbedding(String, TextValue),
     PushValuedEmbedding(String, TextValue, TextValue),
-    PullBestMatch(String, TextValue),
+    PullBranchByScore(String, TextValue),
     PullBestQueryMatch(String, TextValue),
 }
 
@@ -101,10 +101,10 @@ impl UserNodeDefinition for BarkNode {
                 text.clone(),
                 values.clone(),
             )),
-            BarkNode::PullBestMatch(path, text) => {
-                Box::new(PullBestMatch(path.clone(), text.clone()))
+            BarkNode::PullBranchByScore(path, text) => {
+                Box::new(PullBranchByScore(path.clone(), text.clone()))
             }
-            BarkNode::PullBestQueryMatch(path, text) => Box::new(PullBestMatch(
+            BarkNode::PullBestQueryMatch(path, text) => Box::new(PullBranchByScore(
                 path.clone(),
                 TextValue::Multi(vec![
                     TextValue::Variable(VariableId::PreEmbed),

@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-pub struct BestMatch {
+pub struct BranchByScore {
     compared: TextValue,
     compared_embedding: Vec<f32>,
     text_values: Vec<TextValue>,
@@ -10,7 +10,7 @@ pub struct BestMatch {
     >,
 }
 
-impl BestMatch {
+impl BranchByScore {
     pub fn new(
         compared: TextValue,
         text_values: Vec<TextValue>,
@@ -21,7 +21,7 @@ impl BestMatch {
         >,
     ) -> Self {
         if nodes.len() != text_values.len() {
-            panic!("BestMatch nodes and text_values must have the same length");
+            panic!("BranchByScore nodes and text_values must have the same length");
         }
         Self {
             compared,
@@ -33,7 +33,7 @@ impl BestMatch {
     }
 }
 
-impl UnpoweredFunction for BestMatch {
+impl UnpoweredFunction for BranchByScore {
     type Controller = BarkController;
     type Model = BarkModel;
 
