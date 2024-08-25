@@ -1,0 +1,48 @@
+{
+    "Sequence": [
+        {
+            "Wrapper": [
+                {
+                    "Knn": [
+                        "test_push.db",
+                        {
+                            "Simple": "Paris is the best city in France."
+                        },
+                        2
+                    ]
+                },
+                [
+                    {
+                        "User": {
+                            "PrintLine": {
+                                "Variable": "LoopValue"
+                            }
+                        }
+                    }
+                ]
+            ]
+        },
+        {
+            "Wrapper": [
+                {
+                    "KnnQuery": [
+                        "test_push.db",
+                        {
+                            "Simple": "What is the capital of France?"
+                        },
+                        2
+                    ]
+                },
+                [
+                    {
+                        "User": {
+                            "PrintLine": {
+                                "Variable": "LoopValue"
+                            }
+                        }
+                    }
+                ]
+            ]
+        }
+    ]
+}

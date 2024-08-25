@@ -5,9 +5,33 @@
                 "PullBestMatch": [
                     "test_push.db",
                     {
-                        "Simple": "The capital of France is Paris."
+                        "Simple": "France's capital is Paris. It is a nice night when I arrived."
                     }
                 ]
+            }
+        },
+        {
+            "User": {
+                "PrintLine": {
+                    "Variable": "LastOutput"
+                }
+            }
+        },
+        {
+            "User": {
+                "PullBestQueryMatch": [
+                    "test_push.db",
+                    {
+                        "Simple": "What is the capital of France?"
+                    }
+                ]
+            }
+        },
+        {
+            "User": {
+                "PrintLine": {
+                    "Variable": "LastOutput"
+                }
             }
         }
     ]

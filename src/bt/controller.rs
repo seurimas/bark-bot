@@ -9,8 +9,13 @@ pub struct BarkController {
 
 impl BarkController {
     pub fn new() -> Self {
+        let mut text_variables = HashMap::new();
+        text_variables.insert(
+            VariableId::PreEmbed,
+            "Represent this sentence for searching relevant passages: ".to_string(),
+        );
         Self {
-            text_variables: HashMap::new(),
+            text_variables,
             prompts: HashMap::new(),
             embedding_variables: HashMap::new(),
         }

@@ -16,7 +16,7 @@ impl UnpoweredFunction for PullBestMatch {
         let embedding = model.get_embedding(&text);
         match embedding {
             Ok(embedding) => {
-                if let Ok(best_match) = model.pull_best_match(self.0.clone(), embedding) {
+                if let Ok(best_match) = model.pull_best_match(&self.0, embedding) {
                     controller
                         .text_variables
                         .insert(VariableId::LastOutput, best_match);

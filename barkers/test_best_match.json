@@ -1,18 +1,6 @@
 {
     "Sequence": [
         {
-            "User": {
-                "SetText": [
-                    {
-                        "User": "PreEmbed"
-                    },
-                    {
-                        "Simple": "Represent this sentence for searching relevant passages: "
-                    }
-                ]
-            }
-        },
-        {
             "Wrapper": [
                 {
                     "BestMatch": [

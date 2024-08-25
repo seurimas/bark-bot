@@ -108,34 +108,46 @@ impl BarkModel {
         Ok(())
     }
 
-    pub fn pull_best_match(
+    pub fn pull_best_matches(
         &self,
-        path: String,
+        path: &str,
         embedding: Vec<f32>,
-    ) -> Result<String, rusqlite::Error> {
+        n: usize,
+    ) -> Result<Vec<String>, rusqlite::Error> {
         let db = Connection::open(path)?;
         let mut stmt = db.prepare(
-            "select rowid, distance from embeddings where embedding MATCH ?1 order by distance limit 1",
+            "select rowid, distance from embeddings where embedding MATCH ?1 order by distance limit ?2",
         )?;
         let result = stmt
-            .query_map([embedding.as_bytes()], |r| Ok(r.get::<_, i64>(0).unwrap()))?
-            .collect::<Result<Vec<i64>, _>>();
+            .query_map(rusqlite::params![embedding.as_bytes(), n], |r| {
+                Ok((r.get::<_, i64>(0).unwrap(), r.get(1).unwrap()))
+            })?
+            .collect::<Result<Vec<(i64, f32)>, _>>();
         match result {
             Ok(result) => {
-                if result.is_empty() {
-                    return Err(rusqlite::Error::QueryReturnedNoRows);
-                }
-                let rowid = result[0];
                 let mut stmt = db.prepare("select value from texts where rowid = ?")?;
-                let result = stmt
-                    .query_map([rowid], |r| Ok(r.get(0).unwrap()))?
-                    .collect::<Result<Vec<String>, _>>()?;
-                Ok(result[0].clone())
+                let mut results = vec![];
+                for (rowid, _) in result {
+                    let result = stmt
+                        .query_map([rowid], |r| Ok(r.get(0).unwrap()))?
+                        .collect::<Result<Vec<String>, _>>()?;
+                    results.push(result[0].clone());
+                }
+                Ok(results)
             }
             Err(err) => {
                 eprintln!("Error: {:?}", err);
                 Err(err)
             }
         }
+    }
+
+    pub fn pull_best_match(
+        &self,
+        path: &str,
+        embedding: Vec<f32>,
+    ) -> Result<String, rusqlite::Error> {
+        self.pull_best_matches(path, embedding, 1)
+            .and_then(|mut v| v.pop().ok_or(rusqlite::Error::QueryReturnedNoRows))
     }
 }

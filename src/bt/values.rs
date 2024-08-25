@@ -5,6 +5,7 @@ pub enum VariableId {
     LoopValue,
     Accumulator,
     LastOutput,
+    PreEmbed,
     User(String),
 }
 
