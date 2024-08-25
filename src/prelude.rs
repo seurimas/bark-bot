@@ -25,11 +25,21 @@ pub fn system(s: &impl ToString) -> Message {
 }
 
 pub fn chat(prompt: Vec<Message>) -> ChatBody {
+    let mut combined: Vec<Message> = vec![];
+    for message in prompt {
+        if let Some(top) = combined.last_mut() {
+            if matches!(top.role, Role::User) == matches!(message.role, Role::User) {
+                top.content.push_str(&message.content);
+                continue;
+            }
+        }
+        combined.push(message);
+    }
     ChatBody {
         frequency_penalty: None,
         logit_bias: None,
         max_tokens: None,
-        messages: prompt,
+        messages: combined,
         model: "dolphin-2.1-mistral-7b.Q4_K_M.gguf".to_string(),
         n: None,
         presence_penalty: None,

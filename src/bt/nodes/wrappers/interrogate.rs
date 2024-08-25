@@ -46,6 +46,7 @@ impl UnpoweredFunction for Interrogate {
             match self.state {
                 InterrogateState::NotWaited => {
                     // The node has not waited, so it has completed for the previous output.
+                    self.wrapped.reset(model);
                     let newline = self.remaining.find('\n');
                     match newline {
                         Some(index) => {

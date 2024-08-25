@@ -64,6 +64,7 @@ impl UnpoweredFunction for Knn {
                 .insert(VariableId::LoopValue, text_value);
             match self.node.resume_with(model, controller) {
                 UnpoweredFunctionState::Complete => {
+                    self.node.reset(model);
                     self.current = self.current + 1;
                 }
                 UnpoweredFunctionState::Waiting => {
@@ -77,8 +78,9 @@ impl UnpoweredFunction for Knn {
         UnpoweredFunctionState::Complete
     }
 
-    fn reset(self: &mut Self, _model: &Self::Model) {
+    fn reset(self: &mut Self, model: &Self::Model) {
         self.current = 0;
         self.results = vec![];
+        self.node.reset(model);
     }
 }
