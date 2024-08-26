@@ -2,7 +2,7 @@
     "Sequence": [
         {
             "User": {
-                "PullBranchByScore": [
+                "PullBestScored": [
                     "test_push.db",
                     {
                         "Simple": "France's capital is Paris. It is a nice night when I arrived."

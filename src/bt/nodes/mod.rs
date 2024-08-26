@@ -34,16 +34,19 @@ pub enum BarkNode {
     // Response checks
     RequireInResponse(Vec<String>, PromptValue),
     RejectInResponse(Vec<String>, PromptValue),
+    // Files
+    SaveFile { path: TextValue, content: TextValue },
     // STDIO
     ReadLine(VariableId),
     ReadLines(VariableId),
+    AskForInput(TextValue),
     PrintLine(TextValue),
     // Embeddings
     GetEmbedding(TextValue, VariableId),
     // Vector database
     PushSimpleEmbedding(String, TextValue),
     PushValuedEmbedding(String, TextValue, TextValue),
-    PullBranchByScore(String, TextValue),
+    PullBestScored(String, TextValue),
     PullBestQueryMatch(String, TextValue),
     // Search
     Search(TextValue),
@@ -102,8 +105,13 @@ impl UserNodeDefinition for BarkNode {
             BarkNode::RejectInResponse(words, prompt) => {
                 Box::new(RejectInResponse(words.clone(), prompt.clone()))
             }
+            BarkNode::SaveFile { path, content } => Box::new(SaveFile {
+                path: path.clone(),
+                content: content.clone(),
+            }),
             BarkNode::ReadLine(id) => Box::new(ReadStdio(true, id.clone())),
             BarkNode::ReadLines(id) => Box::new(ReadStdio(false, id.clone())),
+            BarkNode::AskForInput(text) => Box::new(AskForInput(text.clone())),
             BarkNode::PrintLine(text) => Box::new(PrintLine(text.clone())),
             BarkNode::GetEmbedding(text, id) => Box::new(GetEmbedding(text.clone(), id.clone())),
             BarkNode::PushSimpleEmbedding(path, text) => {
@@ -114,10 +122,10 @@ impl UserNodeDefinition for BarkNode {
                 text.clone(),
                 values.clone(),
             )),
-            BarkNode::PullBranchByScore(path, text) => {
-                Box::new(PullBranchByScore(path.clone(), text.clone()))
+            BarkNode::PullBestScored(path, text) => {
+                Box::new(PullBestScored(path.clone(), text.clone()))
             }
-            BarkNode::PullBestQueryMatch(path, text) => Box::new(PullBranchByScore(
+            BarkNode::PullBestQueryMatch(path, text) => Box::new(PullBestScored(
                 path.clone(),
                 TextValue::Multi(vec![
                     TextValue::Variable(VariableId::PreEmbed),

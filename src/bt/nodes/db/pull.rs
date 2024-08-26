@@ -1,9 +1,9 @@
 use crate::prelude::*;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct PullBranchByScore(pub String, pub TextValue);
+pub struct PullBestScored(pub String, pub TextValue);
 
-impl UnpoweredFunction for PullBranchByScore {
+impl UnpoweredFunction for PullBestScored {
     type Controller = BarkController;
     type Model = BarkModel;
 

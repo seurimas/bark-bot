@@ -1,3 +1,5 @@
+use std::io::{self, Write};
+
 use crate::prelude::*;
 
 fn unpowered_prompt(prompt: Vec<Message>, model: &BarkModel) -> (String, UnpoweredFunctionState) {
@@ -72,6 +74,8 @@ impl UnpoweredFunction for PickBestPrompt {
         }
         let mut results = vec![];
         for _ in 0..self.0 {
+            print!("."); // Progress indicator
+            io::stdout().flush();
             let (output, result) = unpowered_prompt(prompt.clone(), model);
             if result == UnpoweredFunctionState::Complete {
                 results.push(output);
@@ -79,6 +83,7 @@ impl UnpoweredFunction for PickBestPrompt {
                 break;
             }
         }
+        println!();
         if results.is_empty() {
             UnpoweredFunctionState::Failed
         } else {
@@ -87,10 +92,40 @@ impl UnpoweredFunction for PickBestPrompt {
                 println!("{}: {}", i, output);
             }
             println!("q: Quit");
+            println!("x: Give prompt with the above as context.");
             loop {
                 let input = model.read_stdin(true);
                 if input.trim().eq_ignore_ascii_case("q") {
                     return UnpoweredFunctionState::Failed;
+                } else if input.trim().eq_ignore_ascii_case("x") {
+                    let input = model.read_stdin(true);
+                    let new_messages: Vec<Message> = results
+                        .iter()
+                        .enumerate()
+                        .map(|(i, s)| user(&format!("Item {}:\n{}", i, s)))
+                        .collect::<Vec<Message>>();
+                    let pre_prompt = vec![user(&"Use the following context to answer a new prompt. The context is composed of several items which might be referenced by the prompt. Context:\n")];
+                    let mut new_prompt: Vec<Message> = pre_prompt
+                        .iter()
+                        .cloned()
+                        .chain(new_messages.iter().cloned())
+                        .collect();
+                    new_prompt.push(user(&"\nPrompt:\n"));
+                    new_prompt.push(user(&input));
+                    results = vec![];
+                    for _ in 0..self.0 {
+                        print!("."); // Progress indicator
+                        io::stdout().flush();
+                        let (output, result) = unpowered_prompt(prompt.clone(), model);
+                        if result == UnpoweredFunctionState::Complete {
+                            results.push(output);
+                        } else {
+                            break;
+                        }
+                    }
+                    for (i, output) in results.iter().enumerate() {
+                        println!("{}: {}", i, output);
+                    }
                 } else if let Ok(index) = input.trim().parse::<usize>() {
                     if index < results.len() {
                         controller
