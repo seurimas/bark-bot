@@ -1,4 +1,5 @@
 pub use crate::bt::values::{MessageValue, PromptValue, TextValue, VariableId};
+use crate::bt::BarkDef;
 pub use crate::bt::BarkNode;
 pub use crate::bt::{BarkController, BarkFunction, BarkModel};
 pub use behavior_bark::unpowered::*;
@@ -58,4 +59,10 @@ pub fn score(embed_a: &[f32], embed_b: &[f32]) -> f32 {
     }
     println!("{}", sum);
     sum
+}
+
+pub fn read_tree(tree_path: &str) -> BarkDef {
+    let tree = std::fs::read_to_string(tree_path).expect("Failed to read tree file");
+    let tree: crate::bt::BarkDef = serde_json::from_str(&tree).expect("Failed to parse tree file");
+    tree
 }

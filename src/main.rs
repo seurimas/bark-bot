@@ -1,5 +1,6 @@
 use std::env::args;
 
+use prelude::read_tree;
 use rusqlite::{ffi::sqlite3_auto_extension, Connection};
 use sqlite_vec::sqlite3_vec_init;
 use zerocopy::AsBytes;
@@ -21,8 +22,7 @@ fn main() {
     println!("vec_version={vec_version}");
 
     let tree_path = args().nth(1).expect("Expected tree argument");
-    let tree = std::fs::read_to_string(tree_path).expect("Failed to read tree file");
-    let tree: bt::BarkDef = serde_json::from_str(&tree).expect("Failed to parse tree file");
+    let tree = read_tree(&tree_path);
     let mut tree = tree.create_tree();
     let mut controller = bt::BarkController::new();
     let model = bt::BarkModel::new();

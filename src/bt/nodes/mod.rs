@@ -15,10 +15,13 @@ pub use embedding::*;
 mod search;
 pub use search::*;
 
+use crate::prelude::read_tree;
+
 use super::{values::*, BarkController, BarkModel};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BarkNode {
+    Subtree(String),
     // Simple variable operations.
     SetText(VariableId, TextValue),
     // Modify prompts.
@@ -27,7 +30,7 @@ pub enum BarkNode {
     // Run prompts.
     Chat(Vec<MessageValue>),
     Prompt(PromptValue),
-    Revise(VariableId, PromptValue),
+    PickBestPrompt(usize, PromptValue),
     // Response checks
     RequireInResponse(Vec<String>, PromptValue),
     RejectInResponse(Vec<String>, PromptValue),
@@ -77,6 +80,10 @@ impl UserNodeDefinition for BarkNode {
     ) -> Box<dyn UnpoweredFunction<Model = Self::Model, Controller = Self::Controller> + Send + Sync>
     {
         match self {
+            BarkNode::Subtree(name) => {
+                let tree_def = read_tree(name);
+                tree_def.create_tree()
+            }
             BarkNode::SetText(id, text) => Box::new(SetText(id.clone(), text.clone())),
             BarkNode::StartPrompt(id, messages) => {
                 Box::new(StartPrompt(id.clone(), messages.clone()))
@@ -86,7 +93,9 @@ impl UserNodeDefinition for BarkNode {
             }
             BarkNode::Chat(messages) => Box::new(Prompt(PromptValue::Chat(messages.clone()))),
             BarkNode::Prompt(prompt) => Box::new(Prompt(prompt.clone())),
-            BarkNode::Revise(id, prompt) => Box::new(Revise(id.clone(), prompt.clone())),
+            BarkNode::PickBestPrompt(count, prompt) => {
+                Box::new(PickBestPrompt(*count, prompt.clone()))
+            }
             BarkNode::RequireInResponse(words, prompt) => {
                 Box::new(RequireInResponse(words.clone(), prompt.clone()))
             }

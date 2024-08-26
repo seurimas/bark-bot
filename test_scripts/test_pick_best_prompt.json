@@ -1,0 +1,21 @@
+{
+    "Sequence": [
+        {
+            "User": {
+                "PickBestPrompt": [
+                    3,
+                    {
+                        "Quick": "You are helping me to write a dark fantasy world. Name a single monster which could inhabit this world. State the monster's existence and describe kind of the threat they pose (such as attacking livestock or raiding cities). Keep your answer short and the monster general (do not give it a proper name, just use its common name or describe it briefly). Do not give the name of any location, world, or religion. Focus only on the monster."
+                    }
+                ]
+            }
+        },
+        {
+            "User": {
+                "PrintLine": {
+                    "Variable": "LastOutput"
+                }
+            }
+        }
+    ]
+}

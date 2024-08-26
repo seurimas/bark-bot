@@ -55,9 +55,9 @@ impl UnpoweredFunction for Prompt {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Revise(pub VariableId, pub PromptValue);
+pub struct PickBestPrompt(pub usize, pub PromptValue);
 
-impl UnpoweredFunction for Revise {
+impl UnpoweredFunction for PickBestPrompt {
     type Controller = BarkController;
     type Model = BarkModel;
 
@@ -70,11 +70,41 @@ impl UnpoweredFunction for Revise {
         if prompt.is_empty() {
             return UnpoweredFunctionState::Failed;
         }
-        let (output, result) = unpowered_prompt(prompt.clone(), model);
-        if result == UnpoweredFunctionState::Complete {
-            controller.text_variables.insert(self.0.clone(), output);
+        let mut results = vec![];
+        for _ in 0..self.0 {
+            let (output, result) = unpowered_prompt(prompt.clone(), model);
+            if result == UnpoweredFunctionState::Complete {
+                results.push(output);
+            } else {
+                break;
+            }
         }
-        result
+        if results.is_empty() {
+            UnpoweredFunctionState::Failed
+        } else {
+            println!("Pick your favorite:");
+            for (i, output) in results.iter().enumerate() {
+                println!("{}: {}", i, output);
+            }
+            println!("q: Quit");
+            loop {
+                let input = model.read_stdin(true);
+                if input.trim().eq_ignore_ascii_case("q") {
+                    return UnpoweredFunctionState::Failed;
+                } else if let Ok(index) = input.trim().parse::<usize>() {
+                    if index < results.len() {
+                        controller
+                            .text_variables
+                            .insert(VariableId::LastOutput, results[index].clone());
+                        return UnpoweredFunctionState::Complete;
+                    } else {
+                        println!("Invalid index. Try again or q to quit.");
+                    }
+                } else {
+                    println!("Invalid input. Try again or q to quit.");
+                }
+            }
+        }
     }
 
     fn reset(self: &mut Self, _model: &Self::Model) {
