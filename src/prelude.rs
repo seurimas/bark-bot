@@ -66,3 +66,30 @@ pub fn read_tree(tree_path: &str) -> BarkDef {
     let tree: crate::bt::BarkDef = serde_json::from_str(&tree).expect("Failed to parse tree file");
     tree
 }
+
+pub fn unpowered_prompt(
+    prompt: Vec<Message>,
+    model: &BarkModel,
+) -> (String, UnpoweredFunctionState) {
+    match model.chat_completion_create(&chat(prompt)) {
+        Ok(mut response) => {
+            if response.choices.is_empty() {
+                eprintln!("Prompt Error (empty): {:?}", response);
+                return ("".to_string(), UnpoweredFunctionState::Failed);
+            } else if response.choices[0].message.is_none() {
+                eprintln!("Prompt Error (empty message): {:?}", response);
+                return ("".to_string(), UnpoweredFunctionState::Failed);
+            } else if response.choices.len() > 1 {
+                eprintln!("Prompt Warning (multiple choices): {:?}", response);
+            }
+            (
+                response.choices.pop().unwrap().message.unwrap().content,
+                UnpoweredFunctionState::Complete,
+            )
+        }
+        Err(e) => {
+            eprintln!("Prompt Error: {:?}", e);
+            ("".to_string(), UnpoweredFunctionState::Failed)
+        }
+    }
+}

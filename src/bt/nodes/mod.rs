@@ -5,8 +5,10 @@ use behavior_bark::unpowered::{UnpoweredFunction, UnpoweredFunctionState, UserNo
 pub use db::*;
 pub use io::*;
 pub use messages::*;
-mod prompting;
-pub use prompting::*;
+mod plain_prompt;
+pub use plain_prompt::*;
+mod interactive_prompt;
+pub use interactive_prompt::*;
 mod wrappers;
 use serde::{Deserialize, Serialize};
 pub use wrappers::*;
@@ -30,12 +32,22 @@ pub enum BarkNode {
     // Run prompts.
     Chat(Vec<MessageValue>),
     Prompt(PromptValue),
-    PickBestPrompt(usize, PromptValue),
+    InteractivePrompt {
+        choices: usize,
+        chat: Vec<MessageValue>,
+    },
     // Response checks
     RequireInResponse(Vec<String>, PromptValue),
     RejectInResponse(Vec<String>, PromptValue),
     // Files
-    SaveFile { path: TextValue, content: TextValue },
+    SaveFile {
+        path: TextValue,
+        content: TextValue,
+    },
+    LoadFile {
+        path: TextValue,
+        content: VariableId,
+    },
     // STDIO
     ReadLine(VariableId),
     ReadLines(VariableId),
@@ -96,8 +108,8 @@ impl UserNodeDefinition for BarkNode {
             }
             BarkNode::Chat(messages) => Box::new(Prompt(PromptValue::Chat(messages.clone()))),
             BarkNode::Prompt(prompt) => Box::new(Prompt(prompt.clone())),
-            BarkNode::PickBestPrompt(count, prompt) => {
-                Box::new(PickBestPrompt(*count, prompt.clone()))
+            BarkNode::InteractivePrompt { choices, chat } => {
+                Box::new(InteractivePrompt(*choices, PromptValue::Chat(chat.clone())))
             }
             BarkNode::RequireInResponse(words, prompt) => {
                 Box::new(RequireInResponse(words.clone(), prompt.clone()))
@@ -106,6 +118,10 @@ impl UserNodeDefinition for BarkNode {
                 Box::new(RejectInResponse(words.clone(), prompt.clone()))
             }
             BarkNode::SaveFile { path, content } => Box::new(SaveFile {
+                path: path.clone(),
+                content: content.clone(),
+            }),
+            BarkNode::LoadFile { path, content } => Box::new(LoadFile {
                 path: path.clone(),
                 content: content.clone(),
             }),
