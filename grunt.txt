@@ -1,0 +1,2 @@
+# Ideas
+- Test workflow (.json.test -> a list of inputs and expected outputs for the associated .json file)

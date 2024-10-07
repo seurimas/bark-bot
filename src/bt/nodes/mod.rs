@@ -7,8 +7,6 @@ pub use io::*;
 pub use messages::*;
 mod plain_prompt;
 pub use plain_prompt::*;
-mod interactive_prompt;
-pub use interactive_prompt::*;
 mod wrappers;
 use serde::{Deserialize, Serialize};
 pub use wrappers::*;
