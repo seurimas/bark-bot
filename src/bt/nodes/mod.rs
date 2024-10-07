@@ -1,7 +1,7 @@
 mod db;
 mod io;
 mod variables;
-use behavior_bark::unpowered::{UnpoweredFunction, UnpoweredFunctionState, UserNodeDefinition};
+use behavior_bark::powered::{BehaviorTree, BehaviorTreeState, UserNodeDefinition};
 pub use db::*;
 pub use io::*;
 pub use variables::*;
@@ -64,7 +64,7 @@ impl UserNodeDefinition for BarkNode {
 
     fn create_node(
         &self,
-    ) -> Box<dyn UnpoweredFunction<Model = Self::Model, Controller = Self::Controller> + Send + Sync>
+    ) -> Box<dyn BehaviorTree<Model = Self::Model, Controller = Self::Controller> + Send + Sync>
     {
         match self {
             BarkNode::Subtree(name) => {

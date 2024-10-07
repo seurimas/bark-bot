@@ -3,7 +3,7 @@ use crate::prelude::*;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ReadStdio(pub bool, pub VariableId);
 
-impl UnpoweredFunction for ReadStdio {
+impl BehaviorTree for ReadStdio {
     type Controller = BarkController;
     type Model = BarkModel;
 
@@ -11,10 +11,12 @@ impl UnpoweredFunction for ReadStdio {
         self: &mut Self,
         model: &Self::Model,
         controller: &mut Self::Controller,
-    ) -> UnpoweredFunctionState {
+        _gas: &mut Option<i32>,
+        mut _audit: &mut Option<BehaviorTreeAudit>,
+    ) -> BarkState {
         let value = model.read_stdin(self.0);
         controller.text_variables.insert(self.1.clone(), value);
-        UnpoweredFunctionState::Complete
+        BarkState::Complete
     }
 
     fn reset(self: &mut Self, _model: &Self::Model) {
@@ -25,7 +27,7 @@ impl UnpoweredFunction for ReadStdio {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PrintLine(pub TextValue);
 
-impl UnpoweredFunction for PrintLine {
+impl BehaviorTree for PrintLine {
     type Controller = BarkController;
     type Model = BarkModel;
 
@@ -33,9 +35,11 @@ impl UnpoweredFunction for PrintLine {
         self: &mut Self,
         _model: &Self::Model,
         controller: &mut Self::Controller,
-    ) -> UnpoweredFunctionState {
+        _gas: &mut Option<i32>,
+        mut _audit: &mut Option<BehaviorTreeAudit>,
+    ) -> BarkState {
         println!("{}", controller.get_text(&self.0));
-        UnpoweredFunctionState::Complete
+        BarkState::Complete
     }
 
     fn reset(self: &mut Self, _model: &Self::Model) {
@@ -46,7 +50,7 @@ impl UnpoweredFunction for PrintLine {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AskForInput(pub TextValue);
 
-impl UnpoweredFunction for AskForInput {
+impl BehaviorTree for AskForInput {
     type Controller = BarkController;
     type Model = BarkModel;
 
@@ -54,13 +58,15 @@ impl UnpoweredFunction for AskForInput {
         self: &mut Self,
         model: &Self::Model,
         controller: &mut Self::Controller,
-    ) -> UnpoweredFunctionState {
+        _gas: &mut Option<i32>,
+        mut _audit: &mut Option<BehaviorTreeAudit>,
+    ) -> BarkState {
         println!("{}", controller.get_text(&self.0));
         let value = model.read_stdin(true);
         controller
             .text_variables
             .insert(VariableId::LastOutput, value);
-        UnpoweredFunctionState::Complete
+        BarkState::Complete
     }
 
     fn reset(self: &mut Self, _model: &Self::Model) {

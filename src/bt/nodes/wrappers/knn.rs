@@ -6,7 +6,7 @@ pub struct Knn {
     k: usize,
     current: usize,
     results: Vec<String>,
-    node: Box<dyn UnpoweredFunction<Model = BarkModel, Controller = BarkController> + Send + Sync>,
+    node: Box<dyn BehaviorTree<Model = BarkModel, Controller = BarkController> + Send + Sync>,
 }
 
 impl Knn {
@@ -15,9 +15,7 @@ impl Knn {
         compared: TextValue,
         k: usize,
         mut nodes: Vec<
-            Box<
-                dyn UnpoweredFunction<Model = BarkModel, Controller = BarkController> + Send + Sync,
-            >,
+            Box<dyn BehaviorTree<Model = BarkModel, Controller = BarkController> + Send + Sync>,
         >,
     ) -> Self {
         Self {
@@ -31,7 +29,7 @@ impl Knn {
     }
 }
 
-impl UnpoweredFunction for Knn {
+impl BehaviorTree for Knn {
     type Controller = BarkController;
     type Model = BarkModel;
 
@@ -39,10 +37,13 @@ impl UnpoweredFunction for Knn {
         self: &mut Self,
         model: &Self::Model,
         controller: &mut Self::Controller,
-    ) -> UnpoweredFunctionState {
+        gas: &mut Option<i32>,
+        mut _audit: &mut Option<BehaviorTreeAudit>,
+    ) -> BarkState {
         if self.results.is_empty() {
             let compared_text = controller.get_text(&self.compared);
-            let compared_embedding = model.get_embedding(&compared_text);
+            let compared_embedding = model.get_embedding(&compared_text, gas);
+            check_gas!(gas);
             if let Ok(compared_embedding) = compared_embedding {
                 match model.pull_best_matches(&self.path, compared_embedding, self.k) {
                     Ok(results) => {
@@ -50,11 +51,11 @@ impl UnpoweredFunction for Knn {
                         self.current = 0;
                     }
                     Err(_) => {
-                        return UnpoweredFunctionState::Failed;
+                        return BarkState::Failed;
                     }
                 }
             } else {
-                return UnpoweredFunctionState::Failed;
+                return BarkState::Failed;
             }
         }
         while self.current < self.results.len() {
@@ -62,20 +63,23 @@ impl UnpoweredFunction for Knn {
             controller
                 .text_variables
                 .insert(VariableId::LoopValue, text_value);
-            match self.node.resume_with(model, controller) {
-                UnpoweredFunctionState::Complete => {
+            match self.node.resume_with(model, controller, gas, _audit) {
+                BarkState::Complete => {
                     self.node.reset(model);
                     self.current = self.current + 1;
                 }
-                UnpoweredFunctionState::Waiting => {
-                    return UnpoweredFunctionState::Waiting;
+                BarkState::Waiting => {
+                    return BarkState::Waiting;
                 }
-                UnpoweredFunctionState::Failed => {
-                    return UnpoweredFunctionState::Failed;
+                BarkState::Failed => {
+                    return BarkState::Failed;
+                }
+                BarkState::WaitingForGas => {
+                    return BarkState::WaitingForGas;
                 }
             }
         }
-        UnpoweredFunctionState::Complete
+        BarkState::Complete
     }
 
     fn reset(self: &mut Self, model: &Self::Model) {

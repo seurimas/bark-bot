@@ -45,7 +45,11 @@ impl BarkModel {
         println!("{:?}", response);
     }
 
-    pub fn get_embedding(&self, text: &String) -> Result<Vec<f32>, openai_api_rust::Error> {
+    pub fn get_embedding(
+        &self,
+        text: &String,
+        gas: &mut Option<i32>,
+    ) -> Result<Vec<f32>, openai_api_rust::Error> {
         self.client
             .embeddings_create(&openai_api_rust::embeddings::EmbeddingsBody {
                 user: None,
@@ -53,6 +57,11 @@ impl BarkModel {
                 input: vec![text.clone()],
             })
             .and_then(|response| {
+                response.usage.total_tokens.map(|tokens| {
+                    if let Some(gas) = gas {
+                        *gas = *gas - tokens as i32;
+                    }
+                });
                 response
                     .data
                     .ok_or(openai_api_rust::Error::ApiError("No data".to_string()))

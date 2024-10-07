@@ -5,7 +5,7 @@ use crate::prelude::*;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct InteractivePrompt(pub usize, pub PromptValue);
 
-impl UnpoweredFunction for InteractivePrompt {
+impl BehaviorTree for InteractivePrompt {
     type Controller = BarkController;
     type Model = BarkModel;
 
@@ -13,28 +13,32 @@ impl UnpoweredFunction for InteractivePrompt {
         self: &mut Self,
         model: &Self::Model,
         controller: &mut Self::Controller,
-    ) -> UnpoweredFunctionState {
+        gas: &mut Option<i32>,
+        mut _audit: &mut Option<BehaviorTreeAudit>,
+    ) -> BarkState {
         let prompt = controller.get_prompt(&self.1);
         if prompt.is_empty() {
-            return UnpoweredFunctionState::Failed;
+            return BarkState::Failed;
         }
-        let mut results = multi_prompt(self.0, &prompt, model);
+        let mut results = multi_prompt(self.0, &prompt, model, gas);
+        check_gas!(gas);
         if results.is_empty() {
-            UnpoweredFunctionState::Failed
+            BarkState::Failed
         } else {
             loop {
+                check_gas!(gas);
                 ask_for_input(&results);
                 let input = model.read_stdin(true);
                 if input.trim().eq_ignore_ascii_case("q") {
-                    return UnpoweredFunctionState::Failed;
+                    return BarkState::Failed;
                 } else if input.trim().eq_ignore_ascii_case("e") {
                     let input = model.read_stdin(true);
                     let mut new_prompt: Vec<Message> = prompt.clone();
                     let original_final_content = new_prompt.pop().unwrap().content;
                     new_prompt.push(user(&format!("{}\n{}", original_final_content, input)));
-                    results = multi_prompt(self.0, &new_prompt, model);
+                    results = multi_prompt(self.0, &new_prompt, model, gas);
                 } else if input.trim().eq_ignore_ascii_case("r") {
-                    results = multi_prompt(self.0, &prompt, model);
+                    results = multi_prompt(self.0, &prompt, model, gas);
                 } else if input.trim().eq_ignore_ascii_case("x") {
                     let input = model.read_stdin(true);
                     let new_messages: Vec<Message> = results
@@ -50,13 +54,13 @@ impl UnpoweredFunction for InteractivePrompt {
                         .collect();
                     new_prompt.push(user(&"\nPrompt:\n"));
                     new_prompt.push(user(&input));
-                    results = multi_prompt(3, &new_prompt, model);
+                    results = multi_prompt(3, &new_prompt, model, gas);
                 } else if let Ok(index) = input.trim().parse::<usize>() {
                     if index < results.len() {
                         controller
                             .text_variables
                             .insert(VariableId::LastOutput, results[index].clone());
-                        return UnpoweredFunctionState::Complete;
+                        return BarkState::Complete;
                     } else {
                         println!("Invalid index. Try again or q to quit.");
                     }
@@ -72,13 +76,23 @@ impl UnpoweredFunction for InteractivePrompt {
     }
 }
 
-fn multi_prompt(count: usize, prompt: &Vec<Message>, model: &BarkModel) -> Vec<String> {
+fn multi_prompt(
+    count: usize,
+    prompt: &Vec<Message>,
+    model: &BarkModel,
+    gas: &mut Option<i32>,
+) -> Vec<String> {
     let mut results = vec![];
     for _ in 0..count {
         print!("."); // Progress indicator
         std::io::stdout().flush();
-        let (output, result) = unpowered_prompt(prompt.clone(), model);
-        if result == UnpoweredFunctionState::Complete {
+        let (output, result) = powered_prompt(prompt.clone(), model, gas);
+        if let Some(gas) = gas {
+            if *gas <= 0 {
+                break;
+            }
+        }
+        if result == BarkState::Complete {
             results.push(output);
         } else {
             break;

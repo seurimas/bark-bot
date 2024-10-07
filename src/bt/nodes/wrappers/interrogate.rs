@@ -27,7 +27,7 @@ impl Interrogate {
     }
 }
 
-impl UnpoweredFunction for Interrogate {
+impl BehaviorTree for Interrogate {
     type Controller = BarkController;
     type Model = BarkModel;
 
@@ -35,7 +35,9 @@ impl UnpoweredFunction for Interrogate {
         self: &mut Self,
         model: &Self::Model,
         controller: &mut Self::Controller,
-    ) -> UnpoweredFunctionState {
+        _gas: &mut Option<i32>,
+        mut _audit: &mut Option<BehaviorTreeAudit>,
+    ) -> BarkState {
         if self.state == InterrogateState::Uninitialized {
             let output = controller.get_text(&self.text_value);
             self.current = String::new();
@@ -64,22 +66,25 @@ impl UnpoweredFunction for Interrogate {
                 }
                 _ => {}
             }
-            let result = self.wrapped.resume_with(model, controller);
+            let result = self.wrapped.resume_with(model, controller, _gas, _audit);
             match result {
-                UnpoweredFunctionState::Complete => {
+                BarkState::Complete => {
                     self.state = InterrogateState::NotWaited;
                 }
-                UnpoweredFunctionState::Waiting => {
+                BarkState::Waiting => {
                     self.state = InterrogateState::Waited;
-                    return UnpoweredFunctionState::Waiting;
+                    return BarkState::Waiting;
                 }
-                UnpoweredFunctionState::Failed => {
+                BarkState::Failed => {
                     // XXX: Do we need to reset here?
-                    return UnpoweredFunctionState::Failed;
+                    return BarkState::Failed;
+                }
+                BarkState::WaitingForGas => {
+                    return BarkState::WaitingForGas;
                 }
             }
         }
-        UnpoweredFunctionState::Complete
+        BarkState::Complete
     }
 
     fn reset(self: &mut Self, model: &Self::Model) {

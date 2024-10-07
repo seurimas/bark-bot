@@ -3,7 +3,7 @@ use crate::prelude::*;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PullBestScored(pub String, pub TextValue);
 
-impl UnpoweredFunction for PullBestScored {
+impl BehaviorTree for PullBestScored {
     type Controller = BarkController;
     type Model = BarkModel;
 
@@ -11,22 +11,25 @@ impl UnpoweredFunction for PullBestScored {
         self: &mut Self,
         model: &Self::Model,
         controller: &mut Self::Controller,
-    ) -> UnpoweredFunctionState {
+        gas: &mut Option<i32>,
+        mut _audit: &mut Option<BehaviorTreeAudit>,
+    ) -> BarkState {
         let text = controller.get_text(&self.1);
-        let embedding = model.get_embedding(&text);
+        let embedding = model.get_embedding(&text, gas);
+        check_gas!(gas);
         match embedding {
             Ok(embedding) => {
                 if let Ok(best_match) = model.pull_best_match(&self.0, embedding) {
                     controller
                         .text_variables
                         .insert(VariableId::LastOutput, best_match);
-                    UnpoweredFunctionState::Complete
+                    BarkState::Complete
                 } else {
                     eprintln!("Failed to pull best match");
-                    UnpoweredFunctionState::Failed
+                    BarkState::Failed
                 }
             }
-            Err(_) => UnpoweredFunctionState::Failed,
+            Err(_) => BarkState::Failed,
         }
     }
 

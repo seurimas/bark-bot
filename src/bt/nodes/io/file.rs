@@ -6,7 +6,7 @@ pub struct SaveFile {
     pub content: TextValue,
 }
 
-impl UnpoweredFunction for SaveFile {
+impl BehaviorTree for SaveFile {
     type Controller = BarkController;
     type Model = BarkModel;
 
@@ -14,14 +14,16 @@ impl UnpoweredFunction for SaveFile {
         self: &mut Self,
         _model: &Self::Model,
         controller: &mut Self::Controller,
-    ) -> UnpoweredFunctionState {
+        _gas: &mut Option<i32>,
+        mut _audit: &mut Option<BehaviorTreeAudit>,
+    ) -> BarkState {
         let path = controller.get_text(&self.path);
         let content = controller.get_text(&self.content);
         match std::fs::write(&path, &content) {
-            Ok(_) => UnpoweredFunctionState::Complete,
+            Ok(_) => BarkState::Complete,
             Err(err) => {
                 eprintln!("Failed to save file: {:?}", err);
-                UnpoweredFunctionState::Failed
+                BarkState::Failed
             }
         }
     }
@@ -37,7 +39,7 @@ pub struct LoadFile {
     pub content: VariableId,
 }
 
-impl UnpoweredFunction for LoadFile {
+impl BehaviorTree for LoadFile {
     type Controller = BarkController;
     type Model = BarkModel;
 
@@ -45,18 +47,20 @@ impl UnpoweredFunction for LoadFile {
         self: &mut Self,
         _model: &Self::Model,
         controller: &mut Self::Controller,
-    ) -> UnpoweredFunctionState {
+        _gas: &mut Option<i32>,
+        mut _audit: &mut Option<BehaviorTreeAudit>,
+    ) -> BarkState {
         let path = controller.get_text(&self.path);
         match std::fs::read_to_string(&path) {
             Ok(content) => {
                 controller
                     .text_variables
                     .insert(self.content.clone(), content);
-                UnpoweredFunctionState::Complete
+                BarkState::Complete
             }
             Err(err) => {
                 eprintln!("Failed to load file: {:?}", err);
-                UnpoweredFunctionState::Failed
+                BarkState::Failed
             }
         }
     }

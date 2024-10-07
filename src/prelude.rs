@@ -1,8 +1,10 @@
 pub use crate::bt::values::{MessageValue, PromptValue, TextValue, VariableId};
-use crate::bt::BarkDef;
+pub use crate::bt::BarkDef;
 pub use crate::bt::BarkNode;
-pub use crate::bt::{BarkController, BarkFunction, BarkModel};
-pub use behavior_bark::unpowered::*;
+pub use crate::bt::{BarkController, BarkFunction, BarkModel, BarkState};
+pub use behavior_bark::powered::*;
+
+pub use behavior_bark::check_gas;
 
 use openai_api_rust::chat::ChatBody;
 use openai_api_rust::Role;
@@ -67,29 +69,33 @@ pub fn read_tree(tree_path: &str) -> BarkDef {
     tree
 }
 
-pub fn unpowered_prompt(
+pub fn powered_prompt(
     prompt: Vec<Message>,
     model: &BarkModel,
-) -> (String, UnpoweredFunctionState) {
+    gas: &mut Option<i32>,
+) -> (String, BarkState) {
     match model.chat_completion_create(&chat(prompt)) {
         Ok(mut response) => {
+            if let Some(gas) = gas {
+                *gas = *gas - response.usage.total_tokens.unwrap_or(1000) as i32;
+            }
             if response.choices.is_empty() {
                 eprintln!("Prompt Error (empty): {:?}", response);
-                return ("".to_string(), UnpoweredFunctionState::Failed);
+                return ("".to_string(), BarkState::Failed);
             } else if response.choices[0].message.is_none() {
                 eprintln!("Prompt Error (empty message): {:?}", response);
-                return ("".to_string(), UnpoweredFunctionState::Failed);
+                return ("".to_string(), BarkState::Failed);
             } else if response.choices.len() > 1 {
                 eprintln!("Prompt Warning (multiple choices): {:?}", response);
             }
             (
                 response.choices.pop().unwrap().message.unwrap().content,
-                UnpoweredFunctionState::Complete,
+                BarkState::Complete,
             )
         }
         Err(e) => {
             eprintln!("Prompt Error: {:?}", e);
-            ("".to_string(), UnpoweredFunctionState::Failed)
+            ("".to_string(), BarkState::Failed)
         }
     }
 }

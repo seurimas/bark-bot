@@ -3,7 +3,7 @@ use crate::prelude::*;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SetText(pub VariableId, pub TextValue);
 
-impl UnpoweredFunction for SetText {
+impl BehaviorTree for SetText {
     type Controller = BarkController;
     type Model = BarkModel;
 
@@ -11,10 +11,12 @@ impl UnpoweredFunction for SetText {
         self: &mut Self,
         _model: &Self::Model,
         controller: &mut Self::Controller,
-    ) -> UnpoweredFunctionState {
+        _gas: &mut Option<i32>,
+        mut _audit: &mut Option<BehaviorTreeAudit>,
+    ) -> BarkState {
         let text = controller.get_text(&self.1);
         controller.text_variables.insert(self.0.clone(), text);
-        UnpoweredFunctionState::Complete
+        BarkState::Complete
     }
 
     fn reset(self: &mut Self, _model: &Self::Model) {
@@ -25,7 +27,7 @@ impl UnpoweredFunction for SetText {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GetEmbedding(pub TextValue, pub VariableId);
 
-impl UnpoweredFunction for GetEmbedding {
+impl BehaviorTree for GetEmbedding {
     type Controller = BarkController;
     type Model = BarkModel;
 
@@ -33,17 +35,20 @@ impl UnpoweredFunction for GetEmbedding {
         self: &mut Self,
         model: &Self::Model,
         controller: &mut Self::Controller,
-    ) -> UnpoweredFunctionState {
+        gas: &mut Option<i32>,
+        mut _audit: &mut Option<BehaviorTreeAudit>,
+    ) -> BarkState {
         let text = controller.get_text(&self.0);
-        let embedding = model.get_embedding(&text);
+        let embedding = model.get_embedding(&text, gas);
+        check_gas!(gas);
         match embedding {
             Ok(embedding) => {
                 controller
                     .embedding_variables
                     .insert(self.1.clone(), embedding);
-                UnpoweredFunctionState::Complete
+                BarkState::Complete
             }
-            Err(_) => UnpoweredFunctionState::Failed,
+            Err(_) => BarkState::Failed,
         }
     }
 
@@ -55,7 +60,7 @@ impl UnpoweredFunction for GetEmbedding {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct StartPrompt(pub VariableId, pub Vec<MessageValue>);
 
-impl UnpoweredFunction for StartPrompt {
+impl BehaviorTree for StartPrompt {
     type Controller = BarkController;
     type Model = BarkModel;
 
@@ -63,9 +68,11 @@ impl UnpoweredFunction for StartPrompt {
         self: &mut Self,
         _model: &Self::Model,
         controller: &mut Self::Controller,
-    ) -> UnpoweredFunctionState {
+        _gas: &mut Option<i32>,
+        mut _audit: &mut Option<BehaviorTreeAudit>,
+    ) -> BarkState {
         controller.start_prompt(self.0.clone(), self.1.clone());
-        UnpoweredFunctionState::Complete
+        BarkState::Complete
     }
 
     fn reset(self: &mut Self, _model: &Self::Model) {
@@ -76,7 +83,7 @@ impl UnpoweredFunction for StartPrompt {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ExtendPrompt(pub VariableId, pub Vec<MessageValue>);
 
-impl UnpoweredFunction for ExtendPrompt {
+impl BehaviorTree for ExtendPrompt {
     type Controller = BarkController;
     type Model = BarkModel;
 
@@ -84,9 +91,11 @@ impl UnpoweredFunction for ExtendPrompt {
         self: &mut Self,
         _model: &Self::Model,
         controller: &mut Self::Controller,
-    ) -> UnpoweredFunctionState {
+        _gas: &mut Option<i32>,
+        mut _audit: &mut Option<BehaviorTreeAudit>,
+    ) -> BarkState {
         controller.extend_prompt(self.0.clone(), self.1.clone());
-        UnpoweredFunctionState::Complete
+        BarkState::Complete
     }
 
     fn reset(self: &mut Self, _model: &Self::Model) {

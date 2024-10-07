@@ -3,7 +3,7 @@ use crate::prelude::*;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Prompt(pub PromptValue);
 
-impl UnpoweredFunction for Prompt {
+impl BehaviorTree for Prompt {
     type Controller = BarkController;
     type Model = BarkModel;
 
@@ -11,13 +11,16 @@ impl UnpoweredFunction for Prompt {
         self: &mut Self,
         model: &Self::Model,
         controller: &mut Self::Controller,
-    ) -> UnpoweredFunctionState {
+        gas: &mut Option<i32>,
+        mut _audit: &mut Option<BehaviorTreeAudit>,
+    ) -> BarkState {
         let prompt = controller.get_prompt(&self.0);
         if prompt.is_empty() {
-            return UnpoweredFunctionState::Failed;
+            return BarkState::Failed;
         }
-        let (output, result) = unpowered_prompt(prompt.clone(), model);
-        if result == UnpoweredFunctionState::Complete {
+        let (output, result) = powered_prompt(prompt.clone(), model, gas);
+        check_gas!(gas);
+        if result == BarkState::Complete {
             controller
                 .text_variables
                 .insert(VariableId::LastOutput, output);
@@ -33,7 +36,7 @@ impl UnpoweredFunction for Prompt {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RequireInResponse(pub Vec<String>, pub PromptValue);
 
-impl UnpoweredFunction for RequireInResponse {
+impl BehaviorTree for RequireInResponse {
     type Controller = BarkController;
     type Model = BarkModel;
 
@@ -41,20 +44,23 @@ impl UnpoweredFunction for RequireInResponse {
         self: &mut Self,
         model: &Self::Model,
         controller: &mut Self::Controller,
-    ) -> UnpoweredFunctionState {
+        gas: &mut Option<i32>,
+        mut _audit: &mut Option<BehaviorTreeAudit>,
+    ) -> BarkState {
         let prompt = controller.get_prompt(&self.1);
         if prompt.is_empty() {
-            return UnpoweredFunctionState::Failed;
+            return BarkState::Failed;
         }
-        let (output, result) = unpowered_prompt(prompt.clone(), model);
-        if result == UnpoweredFunctionState::Complete {
+        let (output, result) = powered_prompt(prompt.clone(), model, gas);
+        check_gas!(gas);
+        if result == BarkState::Complete {
             controller
                 .text_variables
                 .insert(VariableId::LastOutput, output.clone());
             if self.0.iter().any(|s| output.to_lowercase().contains(s)) {
-                UnpoweredFunctionState::Complete
+                BarkState::Complete
             } else {
-                UnpoweredFunctionState::Failed
+                BarkState::Failed
             }
         } else {
             result
@@ -69,7 +75,7 @@ impl UnpoweredFunction for RequireInResponse {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RejectInResponse(pub Vec<String>, pub PromptValue);
 
-impl UnpoweredFunction for RejectInResponse {
+impl BehaviorTree for RejectInResponse {
     type Controller = BarkController;
     type Model = BarkModel;
 
@@ -77,20 +83,23 @@ impl UnpoweredFunction for RejectInResponse {
         self: &mut Self,
         model: &Self::Model,
         controller: &mut Self::Controller,
-    ) -> UnpoweredFunctionState {
+        gas: &mut Option<i32>,
+        mut _audit: &mut Option<BehaviorTreeAudit>,
+    ) -> BarkState {
         let prompt = controller.get_prompt(&self.1);
         if prompt.is_empty() {
-            return UnpoweredFunctionState::Failed;
+            return BarkState::Failed;
         }
-        let (output, result) = unpowered_prompt(prompt.clone(), model);
-        if result == UnpoweredFunctionState::Complete {
+        let (output, result) = powered_prompt(prompt.clone(), model, gas);
+        check_gas!(gas);
+        if result == BarkState::Complete {
             controller
                 .text_variables
                 .insert(VariableId::LastOutput, output.clone());
             if self.0.iter().any(|s| output.to_lowercase().contains(s)) {
-                UnpoweredFunctionState::Failed
+                BarkState::Failed
             } else {
-                UnpoweredFunctionState::Complete
+                BarkState::Complete
             }
         } else {
             result

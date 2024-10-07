@@ -5,9 +5,7 @@ pub struct BranchByScore {
     compared_embedding: Vec<f32>,
     text_values: Vec<TextValue>,
     best_index: Option<usize>,
-    nodes: Vec<
-        Box<dyn UnpoweredFunction<Model = BarkModel, Controller = BarkController> + Send + Sync>,
-    >,
+    nodes: Vec<Box<dyn BehaviorTree<Model = BarkModel, Controller = BarkController> + Send + Sync>>,
 }
 
 impl BranchByScore {
@@ -15,9 +13,7 @@ impl BranchByScore {
         compared: TextValue,
         text_values: Vec<TextValue>,
         nodes: Vec<
-            Box<
-                dyn UnpoweredFunction<Model = BarkModel, Controller = BarkController> + Send + Sync,
-            >,
+            Box<dyn BehaviorTree<Model = BarkModel, Controller = BarkController> + Send + Sync>,
         >,
     ) -> Self {
         if nodes.len() != text_values.len() {
@@ -33,7 +29,7 @@ impl BranchByScore {
     }
 }
 
-impl UnpoweredFunction for BranchByScore {
+impl BehaviorTree for BranchByScore {
     type Controller = BarkController;
     type Model = BarkModel;
 
@@ -41,14 +37,17 @@ impl UnpoweredFunction for BranchByScore {
         self: &mut Self,
         model: &Self::Model,
         controller: &mut Self::Controller,
-    ) -> UnpoweredFunctionState {
+        gas: &mut Option<i32>,
+        mut _audit: &mut Option<BehaviorTreeAudit>,
+    ) -> BarkState {
         if self.compared_embedding.is_empty() {
             let compared_text = controller.get_text(&self.compared);
-            let embedding = model.get_embedding(&compared_text);
+            let embedding = model.get_embedding(&compared_text, gas);
+            check_gas!(gas);
             if let Ok(embedding) = embedding {
                 self.compared_embedding = embedding;
             } else {
-                return UnpoweredFunctionState::Failed;
+                return BarkState::Failed;
             }
         }
         if self.best_index.is_none() {
@@ -57,8 +56,9 @@ impl UnpoweredFunction for BranchByScore {
             for (index, text_value) in self.text_values.iter().enumerate() {
                 let text_value = controller.get_text(text_value);
                 let score = model
-                    .get_embedding(&text_value)
+                    .get_embedding(&text_value, gas)
                     .map(|embedding| score(&self.compared_embedding, &embedding));
+                check_gas!(gas);
                 if let Ok(score) = score {
                     if score < best_score {
                         best_score = score;
@@ -74,9 +74,9 @@ impl UnpoweredFunction for BranchByScore {
                 .text_variables
                 .insert(VariableId::LoopValue, matched);
             let node = self.nodes.get_mut(best_index).unwrap();
-            node.resume_with(model, controller)
+            node.resume_with(model, controller, gas, _audit)
         } else {
-            UnpoweredFunctionState::Failed
+            BarkState::Failed
         }
     }
 

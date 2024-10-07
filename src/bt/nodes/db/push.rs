@@ -3,7 +3,7 @@ use crate::prelude::*;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PushSimpleEmbedding(pub String, pub TextValue);
 
-impl UnpoweredFunction for PushSimpleEmbedding {
+impl BehaviorTree for PushSimpleEmbedding {
     type Controller = BarkController;
     type Model = BarkModel;
 
@@ -11,18 +11,21 @@ impl UnpoweredFunction for PushSimpleEmbedding {
         self: &mut Self,
         model: &Self::Model,
         controller: &mut Self::Controller,
-    ) -> UnpoweredFunctionState {
+        gas: &mut Option<i32>,
+        mut _audit: &mut Option<BehaviorTreeAudit>,
+    ) -> BarkState {
         let text = controller.get_text(&self.1);
-        let embedding = model.get_embedding(&text);
+        let embedding = model.get_embedding(&text, gas);
+        check_gas!(gas);
         match embedding {
             Ok(embedding) => match model.push_embedding(self.0.clone(), text, embedding) {
-                Ok(_) => UnpoweredFunctionState::Complete,
+                Ok(_) => BarkState::Complete,
                 Err(err) => {
                     eprintln!("Failed to push simple embedding: {:?}", err);
-                    UnpoweredFunctionState::Failed
+                    BarkState::Failed
                 }
             },
-            Err(_) => UnpoweredFunctionState::Failed,
+            Err(_) => BarkState::Failed,
         }
     }
 
@@ -34,7 +37,7 @@ impl UnpoweredFunction for PushSimpleEmbedding {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PushValuedEmbedding(pub String, pub TextValue, pub TextValue);
 
-impl UnpoweredFunction for PushValuedEmbedding {
+impl BehaviorTree for PushValuedEmbedding {
     type Controller = BarkController;
     type Model = BarkModel;
 
@@ -42,16 +45,19 @@ impl UnpoweredFunction for PushValuedEmbedding {
         self: &mut Self,
         model: &Self::Model,
         controller: &mut Self::Controller,
-    ) -> UnpoweredFunctionState {
+        gas: &mut Option<i32>,
+        mut _audit: &mut Option<BehaviorTreeAudit>,
+    ) -> BarkState {
         let text = controller.get_text(&self.1);
         let embedding_text = controller.get_text(&self.2);
-        let embedding = model.get_embedding(&embedding_text);
+        let embedding = model.get_embedding(&embedding_text, gas);
+        check_gas!(gas);
         match embedding {
             Ok(embedding) => match model.push_embedding(self.0.clone(), text, embedding) {
-                Ok(_) => UnpoweredFunctionState::Complete,
-                Err(_) => UnpoweredFunctionState::Failed,
+                Ok(_) => BarkState::Complete,
+                Err(_) => BarkState::Failed,
             },
-            Err(_) => UnpoweredFunctionState::Failed,
+            Err(_) => BarkState::Failed,
         }
     }
 
