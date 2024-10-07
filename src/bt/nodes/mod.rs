@@ -1,19 +1,17 @@
 mod db;
 mod io;
-mod messages;
+mod variables;
 use behavior_bark::unpowered::{UnpoweredFunction, UnpoweredFunctionState, UserNodeDefinition};
 pub use db::*;
 pub use io::*;
-pub use messages::*;
+pub use variables::*;
 mod plain_prompt;
 pub use plain_prompt::*;
 mod wrappers;
 use serde::{Deserialize, Serialize};
 pub use wrappers::*;
-mod embedding;
-pub use embedding::*;
-mod search;
-pub use search::*;
+mod extensions;
+pub use extensions::*;
 
 use crate::prelude::read_tree;
 
@@ -24,9 +22,9 @@ pub enum BarkNode {
     Subtree(String),
     // Simple variable operations.
     SetText(VariableId, TextValue),
-    // Modify prompts.
     StartPrompt(VariableId, Vec<MessageValue>),
     ExtendPrompt(VariableId, Vec<MessageValue>),
+    GetEmbedding(TextValue, VariableId),
     // Run prompts.
     Chat(Vec<MessageValue>),
     Prompt(PromptValue),
@@ -51,8 +49,6 @@ pub enum BarkNode {
     ReadLines(VariableId),
     AskForInput(TextValue),
     PrintLine(TextValue),
-    // Embeddings
-    GetEmbedding(TextValue, VariableId),
     // Vector database
     PushSimpleEmbedding(String, TextValue),
     PushValuedEmbedding(String, TextValue, TextValue),
@@ -60,28 +56,6 @@ pub enum BarkNode {
     PullBestQueryMatch(String, TextValue),
     // Search
     Search(TextValue),
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SetText(pub VariableId, pub TextValue);
-
-impl UnpoweredFunction for SetText {
-    type Controller = BarkController;
-    type Model = BarkModel;
-
-    fn resume_with(
-        self: &mut Self,
-        _model: &Self::Model,
-        controller: &mut Self::Controller,
-    ) -> UnpoweredFunctionState {
-        let text = controller.get_text(&self.1);
-        controller.text_variables.insert(self.0.clone(), text);
-        UnpoweredFunctionState::Complete
-    }
-
-    fn reset(self: &mut Self, _model: &Self::Model) {
-        // Nothing to do
-    }
 }
 
 impl UserNodeDefinition for BarkNode {
