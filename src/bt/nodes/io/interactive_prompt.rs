@@ -3,7 +3,11 @@ use std::io::Write;
 use crate::prelude::*;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct InteractivePrompt(pub usize, pub PromptValue);
+pub struct InteractivePrompt {
+    pub ai_model: Option<String>,
+    pub choices: usize,
+    pub prompt: PromptValue,
+}
 
 impl BehaviorTree for InteractivePrompt {
     type Controller = BarkController;
@@ -16,11 +20,11 @@ impl BehaviorTree for InteractivePrompt {
         gas: &mut Option<i32>,
         mut _audit: &mut Option<BehaviorTreeAudit>,
     ) -> BarkState {
-        let prompt = controller.get_prompt(&self.1);
+        let prompt = controller.get_prompt(&self.prompt);
         if prompt.is_empty() {
             return BarkState::Failed;
         }
-        let mut results = multi_prompt(self.0, &prompt, model, gas);
+        let mut results = multi_prompt(self.ai_model.as_ref(), self.choices, &prompt, model, gas);
         check_gas!(gas);
         if results.is_empty() {
             BarkState::Failed
@@ -29,17 +33,24 @@ impl BehaviorTree for InteractivePrompt {
                 check_gas!(gas);
                 ask_for_input(&results);
                 let input = model.read_stdin(true);
-                if input.trim().eq_ignore_ascii_case("q") {
+                if input.eq_ignore_ascii_case("q") {
                     return BarkState::Failed;
-                } else if input.trim().eq_ignore_ascii_case("e") {
+                } else if input.eq_ignore_ascii_case("e") {
                     let input = model.read_stdin(true);
                     let mut new_prompt: Vec<Message> = prompt.clone();
                     let original_final_content = new_prompt.pop().unwrap().content;
                     new_prompt.push(user(&format!("{}\n{}", original_final_content, input)));
-                    results = multi_prompt(self.0, &new_prompt, model, gas);
-                } else if input.trim().eq_ignore_ascii_case("r") {
-                    results = multi_prompt(self.0, &prompt, model, gas);
-                } else if input.trim().eq_ignore_ascii_case("x") {
+                    results = multi_prompt(
+                        self.ai_model.as_ref(),
+                        self.choices,
+                        &new_prompt,
+                        model,
+                        gas,
+                    );
+                } else if input.eq_ignore_ascii_case("r") {
+                    results =
+                        multi_prompt(self.ai_model.as_ref(), self.choices, &prompt, model, gas);
+                } else if input.eq_ignore_ascii_case("x") {
                     let input = model.read_stdin(true);
                     let new_messages: Vec<Message> = results
                         .iter()
@@ -54,8 +65,8 @@ impl BehaviorTree for InteractivePrompt {
                         .collect();
                     new_prompt.push(user(&"\nPrompt:\n"));
                     new_prompt.push(user(&input));
-                    results = multi_prompt(3, &new_prompt, model, gas);
-                } else if let Ok(index) = input.trim().parse::<usize>() {
+                    results = multi_prompt(self.ai_model.as_ref(), 3, &new_prompt, model, gas);
+                } else if let Ok(index) = input.parse::<usize>() {
                     if index < results.len() {
                         controller
                             .text_variables
@@ -77,6 +88,7 @@ impl BehaviorTree for InteractivePrompt {
 }
 
 fn multi_prompt(
+    ai_model: Option<&String>,
     count: usize,
     prompt: &Vec<Message>,
     model: &BarkModel,
@@ -86,7 +98,7 @@ fn multi_prompt(
     for _ in 0..count {
         print!("."); // Progress indicator
         std::io::stdout().flush();
-        let (output, result) = powered_prompt(prompt.clone(), model, gas);
+        let (output, result) = powered_prompt(ai_model, prompt.clone(), model, gas);
         if let Some(gas) = gas {
             if *gas <= 0 {
                 break;

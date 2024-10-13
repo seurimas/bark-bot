@@ -1,7 +1,7 @@
 mod db;
 mod io;
 mod variables;
-use behavior_bark::powered::{BehaviorTree, BehaviorTreeState, UserNodeDefinition};
+use behavior_bark::powered::{BehaviorTree, UserNodeDefinition};
 pub use db::*;
 pub use io::*;
 pub use variables::*;
@@ -27,8 +27,15 @@ pub enum BarkNode {
     GetEmbedding(TextValue, VariableId),
     // Run prompts.
     Chat(Vec<MessageValue>),
+    ChatWith(String, Vec<MessageValue>),
     Prompt(PromptValue),
+    PromptWith(String, PromptValue),
     InteractivePrompt {
+        choices: usize,
+        chat: Vec<MessageValue>,
+    },
+    InteractivePromptWith {
+        ai_model: Option<String>,
         choices: usize,
         chat: Vec<MessageValue>,
     },
@@ -78,17 +85,46 @@ impl UserNodeDefinition for BarkNode {
             BarkNode::ExtendPrompt(id, messages) => {
                 Box::new(ExtendPrompt(id.clone(), messages.clone()))
             }
-            BarkNode::Chat(messages) => Box::new(Prompt(PromptValue::Chat(messages.clone()))),
-            BarkNode::Prompt(prompt) => Box::new(Prompt(prompt.clone())),
-            BarkNode::InteractivePrompt { choices, chat } => {
-                Box::new(InteractivePrompt(*choices, PromptValue::Chat(chat.clone())))
-            }
-            BarkNode::RequireInResponse(words, prompt) => {
-                Box::new(RequireInResponse(words.clone(), prompt.clone()))
-            }
-            BarkNode::RejectInResponse(words, prompt) => {
-                Box::new(RejectInResponse(words.clone(), prompt.clone()))
-            }
+            BarkNode::Chat(messages) => Box::new(Prompt {
+                ai_model: None,
+                prompt: PromptValue::Chat(messages.clone()),
+            }),
+            BarkNode::ChatWith(model, messages) => Box::new(Prompt {
+                ai_model: Some(model.clone()),
+                prompt: PromptValue::Chat(messages.clone()),
+            }),
+            BarkNode::Prompt(prompt) => Box::new(Prompt {
+                ai_model: None,
+                prompt: prompt.clone(),
+            }),
+            BarkNode::PromptWith(model, prompt) => Box::new(Prompt {
+                ai_model: Some(model.clone()),
+                prompt: prompt.clone(),
+            }),
+            BarkNode::InteractivePrompt { choices, chat } => Box::new(InteractivePrompt {
+                ai_model: None,
+                choices: *choices,
+                prompt: PromptValue::Chat(chat.clone()),
+            }),
+            BarkNode::InteractivePromptWith {
+                ai_model,
+                choices,
+                chat,
+            } => Box::new(InteractivePrompt {
+                ai_model: ai_model.clone(),
+                choices: *choices,
+                prompt: PromptValue::Chat(chat.clone()),
+            }),
+            BarkNode::RequireInResponse(words, prompt) => Box::new(RequireInResponse {
+                ai_model: None,
+                matches: words.clone(),
+                prompt: prompt.clone(),
+            }),
+            BarkNode::RejectInResponse(words, prompt) => Box::new(RejectInResponse {
+                ai_model: None,
+                matches: words.clone(),
+                prompt: prompt.clone(),
+            }),
             BarkNode::SaveFile { path, content } => Box::new(SaveFile {
                 path: path.clone(),
                 content: content.clone(),

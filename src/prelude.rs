@@ -70,11 +70,12 @@ pub fn read_tree(tree_path: &str) -> BarkDef {
 }
 
 pub fn powered_prompt(
+    preferred_model: Option<&String>,
     prompt: Vec<Message>,
     model: &BarkModel,
     gas: &mut Option<i32>,
 ) -> (String, BarkState) {
-    match model.chat_completion_create(&chat(prompt)) {
+    match model.chat_completion_create(preferred_model, chat(prompt)) {
         Ok(mut response) => {
             if let Some(gas) = gas {
                 *gas = *gas - response.usage.total_tokens.unwrap_or(1000) as i32;

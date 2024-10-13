@@ -6,6 +6,8 @@ mod interrogate;
 pub use interrogate::Interrogate;
 mod knn;
 pub use knn::Knn;
+mod repl;
+pub use repl::Repl;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BarkWrapper {
@@ -13,6 +15,7 @@ pub enum BarkWrapper {
     BranchByScore(TextValue, Vec<TextValue>),
     Knn(String, TextValue, usize),
     KnnQuery(String, TextValue, usize),
+    Repl(TextValue, Vec<TextValue>),
 }
 
 impl UserWrapperDefinition<BarkNode> for BarkWrapper {
@@ -41,6 +44,9 @@ impl UserWrapperDefinition<BarkNode> for BarkWrapper {
                 *k,
                 nodes,
             )),
+            BarkWrapper::Repl(prompt, options) => {
+                Box::new(Repl::new(prompt.clone(), options.clone(), nodes))
+            }
         }
     }
 }

@@ -54,6 +54,13 @@ impl BarkController {
             TextValue::Variable(id) => self.text_variables.get(id).cloned().unwrap_or_default(),
             TextValue::Simple(s) => s.clone(),
             TextValue::Multi(texts) => texts.iter().map(|t| self.get_text(t)).collect(),
+            TextValue::Structured(s) => {
+                let mut output = HashMap::new();
+                for (key, value) in s {
+                    output.insert(key.clone(), self.get_text(value));
+                }
+                serde_json::to_string(&output).unwrap()
+            }
         }
     }
 

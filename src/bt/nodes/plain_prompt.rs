@@ -1,7 +1,10 @@
 use crate::prelude::*;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Prompt(pub PromptValue);
+pub struct Prompt {
+    pub ai_model: Option<String>,
+    pub prompt: PromptValue,
+}
 
 impl BehaviorTree for Prompt {
     type Controller = BarkController;
@@ -14,11 +17,11 @@ impl BehaviorTree for Prompt {
         gas: &mut Option<i32>,
         mut _audit: &mut Option<BehaviorTreeAudit>,
     ) -> BarkState {
-        let prompt = controller.get_prompt(&self.0);
+        let prompt = controller.get_prompt(&self.prompt);
         if prompt.is_empty() {
             return BarkState::Failed;
         }
-        let (output, result) = powered_prompt(prompt.clone(), model, gas);
+        let (output, result) = powered_prompt(self.ai_model.as_ref(), prompt.clone(), model, gas);
         check_gas!(gas);
         if result == BarkState::Complete {
             controller
@@ -34,7 +37,11 @@ impl BehaviorTree for Prompt {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct RequireInResponse(pub Vec<String>, pub PromptValue);
+pub struct RequireInResponse {
+    pub ai_model: Option<String>,
+    pub matches: Vec<String>,
+    pub prompt: PromptValue,
+}
 
 impl BehaviorTree for RequireInResponse {
     type Controller = BarkController;
@@ -47,17 +54,21 @@ impl BehaviorTree for RequireInResponse {
         gas: &mut Option<i32>,
         mut _audit: &mut Option<BehaviorTreeAudit>,
     ) -> BarkState {
-        let prompt = controller.get_prompt(&self.1);
+        let prompt = controller.get_prompt(&self.prompt);
         if prompt.is_empty() {
             return BarkState::Failed;
         }
-        let (output, result) = powered_prompt(prompt.clone(), model, gas);
+        let (output, result) = powered_prompt(self.ai_model.as_ref(), prompt.clone(), model, gas);
         check_gas!(gas);
         if result == BarkState::Complete {
             controller
                 .text_variables
                 .insert(VariableId::LastOutput, output.clone());
-            if self.0.iter().any(|s| output.to_lowercase().contains(s)) {
+            if self
+                .matches
+                .iter()
+                .any(|s| output.to_lowercase().contains(s))
+            {
                 BarkState::Complete
             } else {
                 BarkState::Failed
@@ -73,7 +84,11 @@ impl BehaviorTree for RequireInResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct RejectInResponse(pub Vec<String>, pub PromptValue);
+pub struct RejectInResponse {
+    pub ai_model: Option<String>,
+    pub matches: Vec<String>,
+    pub prompt: PromptValue,
+}
 
 impl BehaviorTree for RejectInResponse {
     type Controller = BarkController;
@@ -86,17 +101,21 @@ impl BehaviorTree for RejectInResponse {
         gas: &mut Option<i32>,
         mut _audit: &mut Option<BehaviorTreeAudit>,
     ) -> BarkState {
-        let prompt = controller.get_prompt(&self.1);
+        let prompt = controller.get_prompt(&self.prompt);
         if prompt.is_empty() {
             return BarkState::Failed;
         }
-        let (output, result) = powered_prompt(prompt.clone(), model, gas);
+        let (output, result) = powered_prompt(self.ai_model.as_ref(), prompt.clone(), model, gas);
         check_gas!(gas);
         if result == BarkState::Complete {
             controller
                 .text_variables
                 .insert(VariableId::LastOutput, output.clone());
-            if self.0.iter().any(|s| output.to_lowercase().contains(s)) {
+            if self
+                .matches
+                .iter()
+                .any(|s| output.to_lowercase().contains(s))
+            {
                 BarkState::Failed
             } else {
                 BarkState::Complete

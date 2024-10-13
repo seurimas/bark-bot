@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use crate::prelude::*;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
@@ -21,6 +23,7 @@ pub enum TextValue {
     Variable(VariableId),
     Simple(String),
     Multi(Vec<TextValue>),
+    Structured(HashMap<String, TextValue>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

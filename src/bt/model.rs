@@ -6,28 +6,83 @@ use zerocopy::AsBytes;
 
 use crate::prelude::*;
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct BarkModelConfig {
+    pub models: HashMap<String, (String, String, String)>,
+    pub embedding_model: (String, String, String),
+}
+
+impl BarkModelConfig {
+    pub fn get_from_env() -> Self {
+        if let (Ok(auth), Some(url)) = (Auth::from_env(), &std::env::var("OPENAI_URL").ok()) {
+            let mut models = HashMap::new();
+            let model = std::env::var("MODEL_NAME").unwrap_or("mistral-nemo".to_string());
+            models.insert(
+                "default".to_string(),
+                (model, auth.api_key.clone(), url.clone()),
+            );
+            let embedding_model = (
+                std::env::var("EMBEDDING_MODEL_NAME")
+                    .unwrap_or("BAAI/bge-small-en-v1.5".to_string()),
+                auth.api_key.clone(),
+                url.clone(),
+            );
+
+            Self {
+                models,
+                embedding_model,
+            }
+        } else {
+            panic!("Failed to get OpenAI auth from environment");
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct BarkModel {
-    client: OpenAI,
+    clients: HashMap<String, (String, OpenAI)>,
+    embedding_client: OpenAI,
+    embedding_model: String,
 }
 
 impl BarkModel {
-    pub fn new() -> Self {
+    pub fn new(config: BarkModelConfig) -> Self {
         unsafe {
             sqlite3_auto_extension(Some(std::mem::transmute(sqlite3_vec_init as *const ())));
         }
 
-        let auth = Auth::from_env().unwrap();
-        let client = OpenAI::new(auth, &std::env::var("OPENAI_URL").unwrap());
+        let clients = config
+            .models
+            .iter()
+            .map(|(name, (model, url, api_key))| {
+                (
+                    name.clone(),
+                    (model.clone(), OpenAI::new(Auth::new(api_key), url)),
+                )
+            })
+            .collect();
+        let embedding_client = OpenAI::new(
+            Auth::new(config.embedding_model.2.as_str()),
+            config.embedding_model.1.as_str(),
+        );
+        let embedding_model = config.embedding_model.0.clone();
 
-        Self { client }
+        Self {
+            clients,
+            embedding_client,
+            embedding_model,
+        }
     }
 
     pub fn chat_completion_create(
         &self,
-        chat: &openai_api_rust::chat::ChatBody,
+        model: Option<&String>,
+        mut chat: openai_api_rust::chat::ChatBody,
     ) -> Result<openai_api_rust::completions::Completion, openai_api_rust::Error> {
-        self.client.chat_completion_create(chat)
+        let model = model.unwrap_or(&"default".to_string()).clone();
+        let (model_name, client) = self.clients.get(&model).unwrap();
+        chat.model = model_name.clone();
+        client.chat_completion_create(&chat)
     }
 
     pub fn search(&self, query: &str) {
@@ -50,10 +105,10 @@ impl BarkModel {
         text: &String,
         gas: &mut Option<i32>,
     ) -> Result<Vec<f32>, openai_api_rust::Error> {
-        self.client
+        self.embedding_client
             .embeddings_create(&openai_api_rust::embeddings::EmbeddingsBody {
                 user: None,
-                model: "BAAI/bge-small-en-v1.5".to_string(),
+                model: self.embedding_model.clone(),
                 input: vec![text.clone()],
             })
             .and_then(|response| {
@@ -80,7 +135,7 @@ impl BarkModel {
         let mut line = String::new();
         std::io::stdin().read_line(&mut line).unwrap();
         if line_only {
-            return line;
+            return line.trim().to_string();
         }
         while !line.is_empty() {
             text.push_str(&line);
