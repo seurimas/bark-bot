@@ -7,8 +7,16 @@ use zerocopy::AsBytes;
 use crate::prelude::*;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct AiModelConfig {
+    pub model_name: String,
+    pub api_key: String,
+    pub url: String,
+    pub temperature: Option<f32>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct BarkModelConfig {
-    pub models: HashMap<String, (String, String, String)>,
+    pub models: HashMap<String, AiModelConfig>,
     pub embedding_model: (String, String, String),
 }
 
@@ -19,7 +27,12 @@ impl BarkModelConfig {
             let model = std::env::var("MODEL_NAME").unwrap_or("mistral-nemo".to_string());
             models.insert(
                 "default".to_string(),
-                (model, auth.api_key.clone(), url.clone()),
+                AiModelConfig {
+                    model_name: model.clone(),
+                    api_key: auth.api_key.clone(),
+                    url: url.clone(),
+                    temperature: None,
+                },
             );
             let embedding_model = (
                 std::env::var("EMBEDDING_MODEL_NAME")
@@ -40,7 +53,7 @@ impl BarkModelConfig {
 
 #[derive(Debug, Clone)]
 pub struct BarkModel {
-    clients: HashMap<String, (String, OpenAI)>,
+    clients: HashMap<String, (String, OpenAI, Option<f32>)>,
     embedding_client: OpenAI,
     embedding_model: String,
 }
@@ -54,12 +67,26 @@ impl BarkModel {
         let clients = config
             .models
             .iter()
-            .map(|(name, (model, url, api_key))| {
-                (
-                    name.clone(),
-                    (model.clone(), OpenAI::new(Auth::new(api_key), url)),
-                )
-            })
+            .map(
+                |(
+                    name,
+                    AiModelConfig {
+                        model_name,
+                        api_key,
+                        url,
+                        temperature,
+                    },
+                )| {
+                    (
+                        name.clone(),
+                        (
+                            model_name.clone(),
+                            OpenAI::new(Auth::new(api_key), url),
+                            temperature.clone(),
+                        ),
+                    )
+                },
+            )
             .collect();
         let embedding_client = OpenAI::new(
             Auth::new(config.embedding_model.2.as_str()),
@@ -80,8 +107,9 @@ impl BarkModel {
         mut chat: openai_api_rust::chat::ChatBody,
     ) -> Result<openai_api_rust::completions::Completion, openai_api_rust::Error> {
         let model = model.unwrap_or(&"default".to_string()).clone();
-        let (model_name, client) = self.clients.get(&model).unwrap();
+        let (model_name, client, temperature) = self.clients.get(&model).unwrap();
         chat.model = model_name.clone();
+        chat.temperature = *temperature;
         client.chat_completion_create(&chat)
     }
 
@@ -151,6 +179,7 @@ impl BarkModel {
         path: String,
         text: String,
         embedding: Vec<f32>,
+        key_values: Option<Vec<(String, String)>>,
     ) -> Result<(), rusqlite::Error> {
         let path = std::path::Path::new(&path);
         let db = if !path.exists() {
@@ -166,6 +195,12 @@ impl BarkModel {
                 "create table texts (rowid integer primary key, value text unique)",
                 [],
             )?;
+            if key_values.is_some() {
+                db.execute(
+                    "create table key_values (rowid integer primary key, embeddingid integer, key text, value text)",
+                    [],
+                )?;
+            }
             println!("Created tables");
             db
         } else {
@@ -186,6 +221,13 @@ impl BarkModel {
         println!("Row ID: {}", row_id);
         let mut stmt = db.prepare("insert into embeddings (rowid, embedding) values (?, ?)")?;
         stmt.execute(rusqlite::params![row_id, embedding.as_bytes()])?;
+        if let Some(key_values) = key_values {
+            let mut kv_stmt =
+                db.prepare("insert into key_values (embeddingid, key, value) values (?, ?, ?)")?;
+            for (key, value) in key_values {
+                kv_stmt.execute(rusqlite::params![row_id, key, value])?;
+            }
+        }
         Ok(())
     }
 

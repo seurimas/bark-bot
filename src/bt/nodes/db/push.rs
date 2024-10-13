@@ -18,7 +18,7 @@ impl BehaviorTree for PushSimpleEmbedding {
         let embedding = model.get_embedding(&text, gas);
         check_gas!(gas);
         match embedding {
-            Ok(embedding) => match model.push_embedding(self.0.clone(), text, embedding) {
+            Ok(embedding) => match model.push_embedding(self.0.clone(), text, embedding, None) {
                 Ok(_) => BarkState::Complete,
                 Err(err) => {
                     eprintln!("Failed to push simple embedding: {:?}", err);
@@ -35,7 +35,7 @@ impl BehaviorTree for PushSimpleEmbedding {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PushValuedEmbedding(pub String, pub TextValue, pub TextValue);
+pub struct PushValuedEmbedding(pub String, pub TextValue, pub Vec<(TextValue, TextValue)>);
 
 impl BehaviorTree for PushValuedEmbedding {
     type Controller = BarkController;
@@ -49,14 +49,20 @@ impl BehaviorTree for PushValuedEmbedding {
         mut _audit: &mut Option<BehaviorTreeAudit>,
     ) -> BarkState {
         let text = controller.get_text(&self.1);
-        let embedding_text = controller.get_text(&self.2);
-        let embedding = model.get_embedding(&embedding_text, gas);
+        let embedding = model.get_embedding(&text, gas);
+        let key_values = self
+            .2
+            .iter()
+            .map(|(k, v)| (controller.get_text(k), controller.get_text(v)))
+            .collect();
         check_gas!(gas);
         match embedding {
-            Ok(embedding) => match model.push_embedding(self.0.clone(), text, embedding) {
-                Ok(_) => BarkState::Complete,
-                Err(_) => BarkState::Failed,
-            },
+            Ok(embedding) => {
+                match model.push_embedding(self.0.clone(), text, embedding, Some(key_values)) {
+                    Ok(_) => BarkState::Complete,
+                    Err(_) => BarkState::Failed,
+                }
+            }
             Err(_) => BarkState::Failed,
         }
     }
