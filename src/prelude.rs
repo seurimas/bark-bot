@@ -6,52 +6,23 @@ pub use behavior_bark::powered::*;
 
 pub use behavior_bark::check_gas;
 
+pub use crate::clients::*;
 use once_cell::sync::OnceCell;
-use openai_api_rust::chat::ChatBody;
-use openai_api_rust::Role;
-pub use openai_api_rust::{Message, OpenAI};
 pub use std::collections::HashMap;
 
 pub use serde::{Deserialize, Serialize};
 
-pub fn user(s: &impl ToString) -> Message {
-    Message {
-        role: Role::User,
+pub fn user(s: &impl ToString) -> BarkMessage {
+    BarkMessage {
+        role: BarkRole::User,
         content: s.to_string(),
     }
 }
 
-pub fn system(s: &impl ToString) -> Message {
-    Message {
-        role: Role::System,
+pub fn system(s: &impl ToString) -> BarkMessage {
+    BarkMessage {
+        role: BarkRole::System,
         content: s.to_string(),
-    }
-}
-
-pub fn chat(prompt: Vec<Message>) -> ChatBody {
-    let mut combined: Vec<Message> = vec![];
-    for message in prompt {
-        if let Some(top) = combined.last_mut() {
-            if matches!(top.role, Role::User) == matches!(message.role, Role::User) {
-                top.content.push_str(&message.content);
-                continue;
-            }
-        }
-        combined.push(message);
-    }
-    ChatBody {
-        frequency_penalty: None,
-        logit_bias: None,
-        max_tokens: Some(4096),
-        messages: combined,
-        model: "dolphin-2.1-mistral-7b.Q4_K_M.gguf".to_string(),
-        n: None,
-        presence_penalty: None,
-        stop: None,
-        stream: None,
-        temperature: None,
-        top_p: None,
-        user: None,
     }
 }
 
@@ -80,28 +51,25 @@ pub fn read_tree(tree_path: &str) -> BarkDef {
 
 pub fn powered_prompt(
     preferred_model: Option<&String>,
-    prompt: Vec<Message>,
+    prompt: Vec<BarkMessage>,
     model: &BarkModel,
     gas: &mut Option<i32>,
 ) -> (String, BarkState) {
-    match model.chat_completion_create(preferred_model, chat(prompt)) {
+    match model.chat_completion_create(preferred_model, prompt.into()) {
         Ok(mut response) => {
             if let Some(gas) = gas {
-                *gas = *gas - response.usage.total_tokens.unwrap_or(1000) as i32;
+                *gas = *gas - response.usage.unwrap_or(1000) as i32;
             }
             if response.choices.is_empty() {
                 eprintln!("Prompt Error (empty): {:?}", response);
                 return ("".to_string(), BarkState::Failed);
-            } else if response.choices[0].message.is_none() {
+            } else if response.choices[0].value.is_empty() {
                 eprintln!("Prompt Error (empty message): {:?}", response);
                 return ("".to_string(), BarkState::Failed);
             } else if response.choices.len() > 1 {
                 eprintln!("Prompt Warning (multiple choices): {:?}", response);
             }
-            (
-                response.choices.pop().unwrap().message.unwrap().content,
-                BarkState::Complete,
-            )
+            (response.choices.pop().unwrap().value, BarkState::Complete)
         }
         Err(e) => {
             eprintln!("Prompt Error: {:?}", e);

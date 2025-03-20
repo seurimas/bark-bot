@@ -4,7 +4,7 @@ use crate::prelude::*;
 pub struct BarkController {
     pub text_variables: HashMap<VariableId, String>,
     pub embedding_variables: HashMap<VariableId, Vec<f32>>,
-    pub prompts: HashMap<VariableId, Vec<Message>>,
+    pub prompts: HashMap<VariableId, Vec<BarkMessage>>,
 }
 
 impl BarkController {
@@ -21,7 +21,7 @@ impl BarkController {
         }
     }
 
-    pub fn get_prompt(&self, prompt: &PromptValue) -> Vec<Message> {
+    pub fn get_prompt(&self, prompt: &PromptValue) -> Vec<BarkMessage> {
         match prompt {
             PromptValue::Variable(id) => self.prompts.get(id).cloned().unwrap_or(vec![]),
             PromptValue::Quick(s) => vec![user(s)],

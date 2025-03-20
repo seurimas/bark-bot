@@ -1,10 +1,11 @@
-use openai_api_rust::{chat::ChatApi, embeddings::EmbeddingsApi, Auth};
+use ollama_rs::Ollama;
+use openai_api_rust::{chat::ChatApi, embeddings::EmbeddingsApi, Auth, OpenAI};
 
 use rusqlite::{ffi::sqlite3_auto_extension, Connection};
 use sqlite_vec::sqlite3_vec_init;
 use zerocopy::AsBytes;
 
-use crate::prelude::*;
+use crate::{clients::*, prelude::*};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AiModelConfig {
@@ -16,7 +17,10 @@ pub struct AiModelConfig {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct BarkModelConfig {
-    pub models: HashMap<String, AiModelConfig>,
+    #[serde(default)]
+    pub openai_models: HashMap<String, AiModelConfig>,
+    #[serde(default)]
+    pub ollama_models: HashMap<String, AiModelConfig>,
     pub embedding_model: (String, String, String),
 }
 
@@ -42,7 +46,32 @@ impl BarkModelConfig {
             );
 
             Self {
-                models,
+                openai_models: models,
+                ollama_models: HashMap::new(),
+                embedding_model,
+            }
+        } else if let Ok(host) = std::env::var("OLLAMA_HOST") {
+            let mut models = HashMap::new();
+            let model = std::env::var("MODEL_NAME").unwrap_or("deepseek-r1:14b".to_string());
+            models.insert(
+                "default".to_string(),
+                AiModelConfig {
+                    model_name: model.clone(),
+                    api_key: "".to_string(),
+                    url: host.clone(),
+                    temperature: None,
+                },
+            );
+            let embedding_model = (
+                std::env::var("EMBEDDING_MODEL_NAME")
+                    .unwrap_or("BAAI/bge-small-en-v1.5".to_string()),
+                "".to_string(),
+                host,
+            );
+
+            Self {
+                openai_models: HashMap::new(),
+                ollama_models: models,
                 embedding_model,
             }
         } else {
@@ -53,7 +82,8 @@ impl BarkModelConfig {
 
 #[derive(Debug, Clone)]
 pub struct BarkModel {
-    clients: HashMap<String, (String, OpenAI, Option<f32>)>,
+    openai_clients: HashMap<String, (String, OpenAI, Option<f32>)>,
+    ollama_clients: HashMap<String, (String, Ollama, Option<f32>)>,
     embedding_client: OpenAI,
     embedding_model: String,
 }
@@ -64,8 +94,8 @@ impl BarkModel {
             sqlite3_auto_extension(Some(std::mem::transmute(sqlite3_vec_init as *const ())));
         }
 
-        let clients = config
-            .models
+        let openai_clients = config
+            .openai_models
             .iter()
             .map(
                 |(
@@ -88,6 +118,30 @@ impl BarkModel {
                 },
             )
             .collect();
+        let ollama_clients = config
+            .ollama_models
+            .iter()
+            .map(
+                |(
+                    name,
+                    AiModelConfig {
+                        model_name,
+                        url,
+                        temperature,
+                        ..
+                    },
+                )| {
+                    (
+                        name.clone(),
+                        (
+                            model_name.clone(),
+                            Ollama::try_new(url).unwrap(),
+                            temperature.clone(),
+                        ),
+                    )
+                },
+            )
+            .collect();
         let embedding_client = OpenAI::new(
             Auth::new(config.embedding_model.2.as_str()),
             config.embedding_model.1.as_str(),
@@ -95,7 +149,8 @@ impl BarkModel {
         let embedding_model = config.embedding_model.0.clone();
 
         Self {
-            clients,
+            openai_clients,
+            ollama_clients,
             embedding_client,
             embedding_model,
         }
@@ -104,13 +159,29 @@ impl BarkModel {
     pub fn chat_completion_create(
         &self,
         model: Option<&String>,
-        mut chat: openai_api_rust::chat::ChatBody,
-    ) -> Result<openai_api_rust::completions::Completion, openai_api_rust::Error> {
+        mut chat: BarkChat,
+    ) -> Result<BarkResponse, String> {
         let model = model.unwrap_or(&"default".to_string()).clone();
-        let (model_name, client, temperature) = self.clients.get(&model).unwrap();
-        chat.model = model_name.clone();
-        chat.temperature = *temperature;
-        client.chat_completion_create(&chat)
+        if let Some((model_name, client, temperature)) = self.openai_clients.get(&model) {
+            chat.model = model_name.clone();
+            chat.temperature = *temperature;
+            client
+                .chat_completion_create(&chat.into())
+                .map(|response| response.into())
+                .map_err(|e| format!("Error: {:?}", e))
+        } else if let Some((model_name, client, temperature)) = self.ollama_clients.get(&model) {
+            chat.model = model_name.clone();
+            chat.temperature = *temperature;
+            futures::executor::block_on(async {
+                client
+                    .send_chat_messages(chat.into())
+                    .await
+                    .map(|response| response.into())
+                    .map_err(|e| format!("Error: {:?}", e))
+            })
+        } else {
+            Err(format!("Model {} not found", model))
+        }
     }
 
     pub fn search(&self, query: &str) {

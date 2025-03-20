@@ -37,7 +37,7 @@ impl BehaviorTree for InteractivePrompt {
                     return BarkState::Failed;
                 } else if input.eq_ignore_ascii_case("e") {
                     let input = model.read_stdin(true);
-                    let mut new_prompt: Vec<Message> = prompt.clone();
+                    let mut new_prompt: Vec<BarkMessage> = prompt.clone();
                     let original_final_content = new_prompt.pop().unwrap().content;
                     new_prompt.push(user(&format!("{}\n{}", original_final_content, input)));
                     results = multi_prompt(
@@ -52,13 +52,13 @@ impl BehaviorTree for InteractivePrompt {
                         multi_prompt(self.ai_model.as_ref(), self.choices, &prompt, model, gas);
                 } else if input.eq_ignore_ascii_case("x") {
                     let input = model.read_stdin(true);
-                    let new_messages: Vec<Message> = results
+                    let new_messages: Vec<BarkMessage> = results
                         .iter()
                         .enumerate()
                         .map(|(i, s)| user(&format!("Item {}:\n{}", i, s)))
-                        .collect::<Vec<Message>>();
+                        .collect::<Vec<BarkMessage>>();
                     let pre_prompt = vec![user(&"Use the following context to answer a new prompt. The context is composed of several items which might be referenced by the prompt. Context:\n")];
-                    let mut new_prompt: Vec<Message> = pre_prompt
+                    let mut new_prompt: Vec<BarkMessage> = pre_prompt
                         .iter()
                         .cloned()
                         .chain(new_messages.iter().cloned())
@@ -90,7 +90,7 @@ impl BehaviorTree for InteractivePrompt {
 fn multi_prompt(
     ai_model: Option<&String>,
     count: usize,
-    prompt: &Vec<Message>,
+    prompt: &Vec<BarkMessage>,
     model: &BarkModel,
     gas: &mut Option<i32>,
 ) -> Vec<String> {
