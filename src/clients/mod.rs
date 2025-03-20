@@ -41,7 +41,7 @@ impl From<Vec<BarkMessage>> for BarkChat {
     fn from(messages: Vec<BarkMessage>) -> Self {
         Self {
             messages,
-            model: "dolphin-2.1-mistral-7b.Q4_K_M.gguf".to_string(),
+            model: "BARK CHAT MODEL NOT OVERRIDEN".to_string(),
             temperature: None,
         }
     }

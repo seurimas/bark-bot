@@ -25,6 +25,12 @@ impl From<BarkChat> for ollama_rs::generation::chat::request::ChatMessageRequest
             tool_calls: vec![],
             images: None,
         };
+        combined.push(ollama_rs::generation::chat::ChatMessage {
+                role: ollama_rs::generation::chat::MessageRole::System,
+                content: "Respond helpfully and concisely to queries. For very complicated queries, think it through first. Otherwise, just answer.".to_string(),
+                tool_calls: vec![],
+                images: None,
+            });
         for message in chat.messages {
             if let Some(top) = combined.last_mut() {
                 if matches!(top.role, ollama_rs::generation::chat::MessageRole::User)

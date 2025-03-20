@@ -5,7 +5,8 @@ use bark_bot::{
     prelude::{read_tree, BarkState, TREE_ROOT},
 };
 
-fn main() -> ExitCode {
+#[tokio::main]
+async fn main() -> ExitCode {
     env_logger::init();
 
     let tree_path = args().nth(1).expect("Expected tree argument");
