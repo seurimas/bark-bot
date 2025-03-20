@@ -24,6 +24,12 @@ pub enum TextValue {
     Simple(String),
     Multi(Vec<TextValue>),
     Structured(HashMap<String, TextValue>),
+    #[cfg(feature = "arc")]
+    ArcDescribed(VariableId, usize),
+    #[cfg(feature = "arc")]
+    ArcDescribedInput(VariableId, usize),
+    #[cfg(feature = "arc")]
+    ArcDescribedOutput(VariableId, usize),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,6 +42,8 @@ pub enum TextMatcher {
     Not(Box<TextMatcher>),
     Any(Vec<TextMatcher>),
     All(Vec<TextMatcher>),
+    #[cfg(feature = "arc")]
+    ArcMatch(VariableId, usize),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -4,6 +4,9 @@ pub use crate::bt::BarkNode;
 pub use crate::bt::{BarkController, BarkFunction, BarkModel, BarkState};
 pub use behavior_bark::powered::*;
 
+#[cfg(feature = "arc")]
+pub use crate::bt::arc::*;
+
 pub use behavior_bark::check_gas;
 
 use once_cell::sync::OnceCell;

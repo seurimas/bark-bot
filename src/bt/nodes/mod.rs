@@ -12,6 +12,10 @@ use serde::{Deserialize, Serialize};
 pub use wrappers::*;
 mod extensions;
 pub use extensions::*;
+#[cfg(feature = "arc")]
+pub mod arc;
+#[cfg(feature = "arc")]
+pub use arc::*;
 
 use crate::prelude::read_tree;
 
@@ -65,6 +69,9 @@ pub enum BarkNode {
     PullBestQueryMatch(String, TextValue),
     // Search
     Search(TextValue),
+    // ARC
+    #[cfg(feature = "arc")]
+    ReadArc(TextValue, VariableId),
 }
 
 impl UserNodeDefinition for BarkNode {
@@ -175,6 +182,11 @@ impl UserNodeDefinition for BarkNode {
                 ]),
             )),
             BarkNode::Search(text) => Box::new(Search(text.clone())),
+            #[cfg(feature = "arc")]
+            BarkNode::ReadArc(text, id) => Box::new(ReadArc {
+                path: text.clone(),
+                content: id.clone(),
+            }),
         }
     }
 }

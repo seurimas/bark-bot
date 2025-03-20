@@ -5,6 +5,8 @@ pub struct BarkController {
     pub text_variables: HashMap<VariableId, String>,
     pub embedding_variables: HashMap<VariableId, Vec<f32>>,
     pub prompts: HashMap<VariableId, Vec<Message>>,
+    #[cfg(feature = "arc")]
+    pub arc_variables: HashMap<VariableId, TrainingData>,
 }
 
 impl BarkController {
@@ -18,6 +20,8 @@ impl BarkController {
             text_variables,
             prompts: HashMap::new(),
             embedding_variables: HashMap::new(),
+            #[cfg(feature = "arc")]
+            arc_variables: HashMap::new(),
         }
     }
 
@@ -63,6 +67,33 @@ impl BarkController {
                 }
                 serde_json::to_string(&output).unwrap()
             }
+            #[cfg(feature = "arc")]
+            TextValue::ArcDescribed(id, index) => {
+                let data = self.arc_variables.get(id).unwrap();
+                if data.train.len() <= *index {
+                    data.test[*index - data.train.len()].describe()
+                } else {
+                    data.train[*index].describe()
+                }
+            }
+            #[cfg(feature = "arc")]
+            TextValue::ArcDescribedInput(id, index) => {
+                let data: &TrainingData = self.arc_variables.get(id).unwrap();
+                if data.train.len() <= *index {
+                    data.test[*index - data.train.len()].describe_input()
+                } else {
+                    data.train[*index].describe_input()
+                }
+            }
+            #[cfg(feature = "arc")]
+            TextValue::ArcDescribedOutput(id, index) => {
+                let data: &TrainingData = self.arc_variables.get(id).unwrap();
+                if data.train.len() <= *index {
+                    data.test[*index - data.train.len()].describe_output()
+                } else {
+                    data.train[*index].describe_output()
+                }
+            }
         }
     }
 
@@ -84,6 +115,22 @@ impl BarkController {
             TextMatcher::Not(inner) => !self.text_matches(text, inner),
             TextMatcher::Any(matchers) => matchers.iter().any(|m| self.text_matches(text, m)),
             TextMatcher::All(matchers) => matchers.iter().all(|m| self.text_matches(text, m)),
+            #[cfg(feature = "arc")]
+            TextMatcher::ArcMatch(id, index) => {
+                let checked = self.get_text(text);
+                let data = self.arc_variables.get(id).unwrap();
+                let output = if data.train.len() <= *index {
+                    &data.test[*index - data.train.len()].output
+                } else {
+                    &data.train[*index].output
+                };
+                if let Ok(checked_value) = serde_json::from_str::<Vec<Vec<u8>>>(&checked) {
+                    // output.iter().zip(checked_value.iter()).all(|(a, b)| a == b)
+                    output == &checked_value
+                } else {
+                    false
+                }
+            }
         }
     }
 
