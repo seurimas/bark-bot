@@ -1,4 +1,4 @@
-pub use crate::bt::values::{MessageValue, PromptValue, TextValue, VariableId};
+pub use crate::bt::values::{MessageValue, PromptValue, TextMatcher, TextValue, VariableId};
 pub use crate::bt::BarkDef;
 pub use crate::bt::BarkNode;
 pub use crate::bt::{BarkController, BarkFunction, BarkModel, BarkState};
@@ -6,6 +6,7 @@ pub use behavior_bark::powered::*;
 
 pub use behavior_bark::check_gas;
 
+use once_cell::sync::OnceCell;
 use openai_api_rust::chat::ChatBody;
 use openai_api_rust::Role;
 pub use openai_api_rust::{Message, OpenAI};
@@ -63,9 +64,17 @@ pub fn score(embed_a: &[f32], embed_b: &[f32]) -> f32 {
     sum
 }
 
+pub static TREE_ROOT: OnceCell<String> = OnceCell::new();
+
 pub fn read_tree(tree_path: &str) -> BarkDef {
-    let tree = std::fs::read_to_string(tree_path).expect("Failed to read tree file");
-    let tree: crate::bt::BarkDef = serde_json::from_str(&tree).expect("Failed to parse tree file");
+    let root = std::path::Path::new(TREE_ROOT.get().expect("TREE_ROOT not set"));
+    let tree = std::fs::read_to_string(std::path::Path::join(root, tree_path))
+        .expect("Failed to read tree file");
+    let tree: crate::bt::BarkDef = if tree_path.ends_with("json") {
+        serde_json::from_str(&tree).expect("Failed to parse JSON tree file")
+    } else {
+        ron::from_str(&tree).expect("Failed to parse RON tree file")
+    };
     tree
 }
 

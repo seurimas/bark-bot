@@ -27,10 +27,24 @@ pub enum TextValue {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum TextMatcher {
+    Exact(TextValue),
+    Contains(TextValue),
+    StartsWith(TextValue),
+    EndsWith(TextValue),
+    // Regex(TextValue),
+    Not(Box<TextMatcher>),
+    Any(Vec<TextMatcher>),
+    All(Vec<TextMatcher>),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MessageValue {
     User(String),
     System(String),
     UserVar(VariableId),
     SystemVar(VariableId),
+    UserVal(TextValue),
+    SystemVal(TextValue),
     SubPrompt(VariableId),
 }

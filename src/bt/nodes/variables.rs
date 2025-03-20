@@ -102,3 +102,32 @@ impl BehaviorTree for ExtendPrompt {
         // Nothing to do
     }
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Unescape(pub VariableId);
+
+impl BehaviorTree for Unescape {
+    type Controller = BarkController;
+    type Model = BarkModel;
+
+    fn resume_with(
+        self: &mut Self,
+        _model: &Self::Model,
+        controller: &mut Self::Controller,
+        _gas: &mut Option<i32>,
+        mut _audit: &mut Option<BehaviorTreeAudit>,
+    ) -> BarkState {
+        let text = controller.text_variables.get(&self.0).unwrap();
+        let unescaped = serde_json::from_str(text);
+        if unescaped.is_err() {
+            return BarkState::Failed;
+        }
+        let unescaped: String = unescaped.unwrap();
+        controller.text_variables.insert(self.0.clone(), unescaped);
+        BarkState::Complete
+    }
+
+    fn reset(self: &mut Self, _model: &Self::Model) {
+        // Nothing to do
+    }
+}

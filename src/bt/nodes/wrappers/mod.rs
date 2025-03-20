@@ -8,6 +8,8 @@ mod knn;
 pub use knn::Knn;
 mod repl;
 pub use repl::Repl;
+mod repeat_until;
+pub use repeat_until::RepeatUntil;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BarkWrapper {
@@ -15,13 +17,14 @@ pub enum BarkWrapper {
     BranchByScore(TextValue, Vec<TextValue>),
     Knn(String, TextValue, usize),
     KnnQuery(String, TextValue, usize),
-    Repl(TextValue, Vec<TextValue>),
+    Repl(Option<TextValue>, Vec<TextValue>),
+    RepeatUntil,
 }
 
 impl UserWrapperDefinition<BarkNode> for BarkWrapper {
     fn create_node_and_wrap(
         &self,
-        nodes: Vec<
+        mut nodes: Vec<
             Box<dyn BehaviorTree<Model = BarkModel, Controller = BarkController> + Send + Sync>,
         >,
     ) -> Box<dyn BehaviorTree<Model = BarkModel, Controller = BarkController> + Send + Sync> {
@@ -46,6 +49,9 @@ impl UserWrapperDefinition<BarkNode> for BarkWrapper {
             )),
             BarkWrapper::Repl(prompt, options) => {
                 Box::new(Repl::new(prompt.clone(), options.clone(), nodes))
+            }
+            BarkWrapper::RepeatUntil => {
+                Box::new(RepeatUntil::new(nodes.pop().unwrap(), nodes.pop().unwrap()))
             }
         }
     }

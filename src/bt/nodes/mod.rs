@@ -40,6 +40,7 @@ pub enum BarkNode {
         chat: Vec<MessageValue>,
     },
     // Response checks
+    MatchResponse(Option<String>, TextMatcher, PromptValue),
     RequireInResponse(Vec<String>, PromptValue),
     RejectInResponse(Vec<String>, PromptValue),
     // Files
@@ -56,6 +57,7 @@ pub enum BarkNode {
     ReadLines(VariableId),
     AskForInput(TextValue),
     PrintLine(TextValue),
+    Unescape(VariableId),
     // Vector database
     PushSimpleEmbedding(String, TextValue),
     PushEmbeddingKeyValues(String, TextValue, Vec<(TextValue, TextValue)>),
@@ -115,14 +117,29 @@ impl UserNodeDefinition for BarkNode {
                 choices: *choices,
                 prompt: PromptValue::Chat(chat.clone()),
             }),
-            BarkNode::RequireInResponse(words, prompt) => Box::new(RequireInResponse {
-                ai_model: None,
-                matches: words.clone(),
+            BarkNode::MatchResponse(ai_model, matches, prompt) => Box::new(MatchResponse {
+                ai_model: ai_model.clone(),
+                matches: matches.clone(),
                 prompt: prompt.clone(),
             }),
-            BarkNode::RejectInResponse(words, prompt) => Box::new(RejectInResponse {
+            BarkNode::RequireInResponse(words, prompt) => Box::new(MatchResponse {
                 ai_model: None,
-                matches: words.clone(),
+                matches: TextMatcher::Any(
+                    words
+                        .iter()
+                        .map(|w| TextMatcher::Exact(TextValue::Simple(w.clone())))
+                        .collect(),
+                ),
+                prompt: prompt.clone(),
+            }),
+            BarkNode::RejectInResponse(words, prompt) => Box::new(MatchResponse {
+                ai_model: None,
+                matches: TextMatcher::Not(Box::new(TextMatcher::Any(
+                    words
+                        .iter()
+                        .map(|w| TextMatcher::Exact(TextValue::Simple(w.clone())))
+                        .collect(),
+                ))),
                 prompt: prompt.clone(),
             }),
             BarkNode::SaveFile { path, content } => Box::new(SaveFile {
@@ -137,6 +154,7 @@ impl UserNodeDefinition for BarkNode {
             BarkNode::ReadLines(id) => Box::new(ReadStdio(false, id.clone())),
             BarkNode::AskForInput(text) => Box::new(AskForInput(text.clone())),
             BarkNode::PrintLine(text) => Box::new(PrintLine(text.clone())),
+            BarkNode::Unescape(id) => Box::new(Unescape(id.clone())),
             BarkNode::GetEmbedding(text, id) => Box::new(GetEmbedding(text.clone(), id.clone())),
             BarkNode::PushSimpleEmbedding(path, text) => {
                 Box::new(PushSimpleEmbedding(path.clone(), text.clone()))

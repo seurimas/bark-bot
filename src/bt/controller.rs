@@ -37,6 +37,8 @@ impl BarkController {
                         MessageValue::SystemVar(id) => chat.push(system(
                             &self.text_variables.get(id).cloned().unwrap_or_default(),
                         )),
+                        MessageValue::UserVal(text) => chat.push(user(&self.get_text(text))),
+                        MessageValue::SystemVal(text) => chat.push(system(&self.get_text(text))),
                         MessageValue::SubPrompt(id) => {
                             if let Some(sub_prompt) = self.prompts.get(id) {
                                 chat.extend(sub_prompt.clone());
@@ -61,6 +63,27 @@ impl BarkController {
                 }
                 serde_json::to_string(&output).unwrap()
             }
+        }
+    }
+
+    pub fn text_matches(&self, text: &TextValue, matcher: &TextMatcher) -> bool {
+        match matcher {
+            TextMatcher::Exact(value) => self
+                .get_text(text)
+                .trim()
+                .eq_ignore_ascii_case(self.get_text(value).trim()),
+            TextMatcher::Contains(value) => self.get_text(text).contains(&self.get_text(value)),
+            TextMatcher::StartsWith(value) => {
+                self.get_text(text).starts_with(&self.get_text(value))
+            }
+            TextMatcher::EndsWith(value) => self.get_text(text).ends_with(&self.get_text(value)),
+            // TextMatcher::Regex(value) => {
+            //     let re = regex::Regex::new(&self.get_text(value)).unwrap();
+            //     re.is_match(&self.get_text(text))
+            // }
+            TextMatcher::Not(inner) => !self.text_matches(text, inner),
+            TextMatcher::Any(matchers) => matchers.iter().any(|m| self.text_matches(text, m)),
+            TextMatcher::All(matchers) => matchers.iter().all(|m| self.text_matches(text, m)),
         }
     }
 

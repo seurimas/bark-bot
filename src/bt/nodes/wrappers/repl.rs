@@ -1,7 +1,7 @@
 use crate::prelude::*;
 
 pub struct Repl {
-    prompt: TextValue,
+    prompt: Option<TextValue>,
     text_values: Vec<TextValue>,
     best_index: Option<usize>,
     nodes: Vec<Box<dyn BehaviorTree<Model = BarkModel, Controller = BarkController> + Send + Sync>>,
@@ -9,7 +9,7 @@ pub struct Repl {
 
 impl Repl {
     pub fn new(
-        prompt: TextValue,
+        prompt: Option<TextValue>,
         text_values: Vec<TextValue>,
         nodes: Vec<
             Box<dyn BehaviorTree<Model = BarkModel, Controller = BarkController> + Send + Sync>,
@@ -40,15 +40,21 @@ impl BehaviorTree for Repl {
     ) -> BehaviorTreeState {
         loop {
             if self.best_index.is_none() {
-                println!("{}", controller.get_text(&self.prompt));
+                if let Some(text) = &self.prompt {
+                    println!("{}", controller.get_text(text));
+                }
                 let input = model.read_stdin(true);
                 let idx = self
                     .text_values
                     .iter()
                     .position(|v| controller.get_text(v).eq_ignore_ascii_case(&input));
-                if let Some(idx) = idx {
+                if input.is_empty() {
+                    println!("Exiting REPL: Empty input");
+                    return BehaviorTreeState::Failed;
+                } else if let Some(idx) = idx {
                     self.best_index = Some(idx);
                 } else {
+                    println!("Exiting REPL: Invalid input '{}'", input);
                     return BehaviorTreeState::Failed;
                 }
             }
@@ -60,6 +66,7 @@ impl BehaviorTree for Repl {
                     continue;
                 }
                 state => {
+                    println!("Exiting REPL: {:?}", state);
                     return state;
                 }
             }
