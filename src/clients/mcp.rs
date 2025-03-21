@@ -14,16 +14,24 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use tower::timeout::Timeout;
 
-use super::{BarkTool, BarkToolCall, BarkToolCallResponse};
+use super::{apply_tool_filters, BarkTool, BarkToolCall, BarkToolCallResponse};
 
 pub type McpServiceClient = McpClient<Timeout<McpService<StdioTransportHandle>>>;
+
+fn default_timeout_seconds() -> f32 {
+    30.0
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpServiceConfig {
     pub command: String,
     pub args: Vec<String>,
+    #[serde(default)]
     pub env: HashMap<String, String>,
+    #[serde(default = "default_timeout_seconds")]
     pub timeout_seconds: f32,
+    #[serde(default)]
+    pub tool_filters: Vec<String>,
 }
 
 pub async fn initialize_mcp_service(
@@ -58,15 +66,6 @@ pub async fn initialize_mcp_service(
             ClientCapabilities::default(),
         )
         .await?;
-    println!("Connected to server: {server_info:?}\n");
-
-    // List tools
-    let tools = client.list_tools(None).await?;
-    println!("Available tools: {tools:?}\n");
-
-    // List resources
-    let resources = client.list_resources(None).await?;
-    println!("Available resources: {resources:?}\n");
 
     Ok(client)
 }
@@ -86,6 +85,42 @@ pub async fn initialize_mcp_service_map(
         }
     }
     mcp_services
+}
+
+pub async fn initialize_mcp_tool_map(
+    clients: &HashMap<String, Arc<Mutex<McpServiceClient>>>,
+    filters: &HashMap<String, Vec<String>>,
+) -> HashMap<String, BarkTool> {
+    let mut mcp_tools = HashMap::new();
+    for (name, client) in clients.iter() {
+        let client = client.lock().unwrap();
+        let tools = client.list_tools(None).await;
+        match tools {
+            Ok(tool_list) => {
+                for tool in tool_list.tools.iter() {
+                    let tool_name = tool.name.clone();
+                    let tool_name = format!("{name}__{tool_name}");
+                    if !apply_tool_filters(filters, &tool_name) {
+                        continue;
+                    }
+                    let tool_description = tool.description.clone();
+                    let tool_parameters = tool.input_schema.clone();
+                    mcp_tools.insert(
+                        tool_name.clone(),
+                        BarkTool {
+                            name: tool_name,
+                            description: tool_description,
+                            parameters: tool_parameters,
+                        },
+                    );
+                }
+            }
+            Err(e) => {
+                eprintln!("Failed to list tools for service {name}: {e}");
+            }
+        }
+    }
+    mcp_tools
 }
 
 impl From<Tool> for BarkTool {

@@ -1,5 +1,6 @@
 use std::{
     any,
+    collections::hash_map::Entry,
     sync::{Arc, Mutex},
 };
 
@@ -50,6 +51,7 @@ pub struct BarkModel {
     openai_clients: HashMap<String, (String, OpenAI, Option<f32>)>,
     ollama_clients: HashMap<String, (String, Ollama, Option<f32>)>,
     mcp_services: HashMap<String, Arc<Mutex<McpServiceClient>>>,
+    tools_map: HashMap<String, BarkTool>,
     embedding_client: OpenAI,
     embedding_model: String,
 }
@@ -121,6 +123,15 @@ impl BarkModel {
             )
             .collect();
         let mcp_services = block_on(initialize_mcp_service_map(&config.mcp_services));
+        let service_filters = config
+            .mcp_services
+            .iter()
+            .map(|(name, config)| {
+                let filters = config.tool_filters.clone();
+                (name.clone(), filters)
+            })
+            .collect::<HashMap<String, Vec<String>>>();
+        let tools_map = block_on(initialize_mcp_tool_map(&mcp_services, &service_filters));
         let embedding_client = OpenAI::new(&config.embedding_model.2, &config.embedding_model.1);
         let embedding_model = config.embedding_model.0.clone();
 
@@ -128,6 +139,7 @@ impl BarkModel {
             openai_clients,
             ollama_clients,
             mcp_services,
+            tools_map,
             embedding_client,
             embedding_model,
         }
@@ -137,7 +149,17 @@ impl BarkModel {
         if filters.iter().any(|filter| filter.eq("debug")) {
             return vec![BarkTool::debug_tool()];
         } else {
-            return vec![];
+            return self
+                .tools_map
+                .iter()
+                .filter_map(|entry| {
+                    if apply_tool_filters(filters, entry.0) {
+                        Some(entry.1.clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect();
         }
     }
 

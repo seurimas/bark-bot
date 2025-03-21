@@ -128,7 +128,6 @@ pub fn powered_chat(
                 match block_on(model.call_tool(&call)) {
                     Ok(BarkToolCallResponse { id, result, .. }) => {
                         if let Some(result) = result {
-                            println!("Tool call result: {:?}", result);
                             messages.push(BarkMessage {
                                 role: BarkRole::Tool,
                                 content: BarkContent::ToolResponse {

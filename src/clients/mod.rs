@@ -6,6 +6,8 @@ mod ollama;
 pub use ollama::*;
 mod mcp;
 pub use mcp::*;
+mod tools;
+pub use tools::*;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BarkMessage {

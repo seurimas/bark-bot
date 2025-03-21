@@ -98,7 +98,6 @@ pub async fn openai_get_bark_response(
             .map(|t| t.into())
             .collect::<Vec<Tool>>(),
     );
-    println!("Chat request: {:?}", chat_request);
     client
         .chat_completion(chat_request)
         .await
@@ -149,13 +148,6 @@ fn push_content(content: &mut Content, string: &str) {
     text.push_str(string);
 }
 
-fn content_empty(content: &Content) -> bool {
-    match content {
-        Content::Text(text) => text.is_empty(),
-        _ => true,
-    }
-}
-
 impl From<BarkRole> for MessageRole {
     fn from(value: BarkRole) -> Self {
         match value {
@@ -170,7 +162,6 @@ impl From<BarkRole> for MessageRole {
 impl From<BarkChat> for ChatCompletionRequest {
     fn from(chat: BarkChat) -> Self {
         let mut combined: Vec<ChatCompletionMessage> = vec![];
-        println!("Chat messages: {:?}", chat.messages);
         for message in chat.messages {
             if let Some(text_content) = message.text_content() {
                 if combined.is_empty() {
@@ -220,7 +211,6 @@ impl From<BarkChat> for ChatCompletionRequest {
                     }
                 }
             } else if let Some(tool_call) = message.tool_call() {
-                println!("Pushing tool call: {:?}", tool_call);
                 combined.push(ChatCompletionMessage {
                     role: message.role.into(),
                     content: Content::Text("".to_string()),
@@ -237,7 +227,6 @@ impl From<BarkChat> for ChatCompletionRequest {
                 });
             }
         }
-        println!("Combined messages: {:?}", combined);
         ChatCompletionRequest {
             frequency_penalty: None,
             logit_bias: None,
@@ -288,10 +277,112 @@ impl From<&openai_api_rs::v1::chat_completion::ToolCall> for BarkToolCall {
 }
 
 fn get_parameters_from_value(value: Value) -> FunctionParameters {
+    let Some(object) = value.as_object() else {
+        return FunctionParameters {
+            schema_type: JSONSchemaType::Object,
+            properties: Some(HashMap::new()),
+            required: Some(Vec::new()),
+        };
+    };
+    let schema_type = object
+        .get("type")
+        .map(|schema| get_schema_type_from_value(schema))
+        .unwrap_or(JSONSchemaType::Object);
+    let Some(properties) = object.get("properties") else {
+        return FunctionParameters {
+            schema_type,
+            properties: Some(HashMap::new()),
+            required: Some(Vec::new()),
+        };
+    };
+    let properties = properties.as_object().map(|properties| {
+        let mut properties_map = HashMap::new();
+        for (key, value) in properties {
+            properties_map.insert(key.clone(), Box::new(get_property_define(value)));
+        }
+        properties_map
+    });
+    let required = object
+        .get("required")
+        .and_then(|req| req.as_array())
+        .map(|req| {
+            req.iter()
+                .filter_map(|item| item.as_str())
+                .map(|item| item.to_string())
+                .collect::<Vec<String>>()
+        });
     FunctionParameters {
-        schema_type: JSONSchemaType::Object,
-        properties: Some(HashMap::new()),
-        required: Some(Vec::new()),
+        schema_type,
+        properties,
+        required,
+    }
+}
+
+fn get_schema_type_from_value(value: &Value) -> JSONSchemaType {
+    value
+        .as_str()
+        .map(|schema| match schema {
+            "object" => JSONSchemaType::Object,
+            "array" => JSONSchemaType::Array,
+            "string" => JSONSchemaType::String,
+            "number" => JSONSchemaType::Number,
+            "boolean" => JSONSchemaType::Boolean,
+            _ => JSONSchemaType::Object,
+        })
+        .unwrap_or(JSONSchemaType::Object)
+}
+
+fn get_property_define(value: &Value) -> JSONSchemaDefine {
+    let Some(object) = value.as_object() else {
+        panic!("Expected object for property define");
+    };
+    let description = object
+        .get("description")
+        .and_then(|desc| desc.as_str())
+        .map(|desc| desc.to_string());
+    let schema_type = object
+        .get("type")
+        .map(|schema| get_schema_type_from_value(schema));
+    let required = object
+        .get("required")
+        .and_then(|req| req.as_array())
+        .map(|req| {
+            req.iter()
+                .filter_map(|item| item.as_str())
+                .map(|item| item.to_string())
+                .collect::<Vec<String>>()
+        });
+    let items = object
+        .get("items")
+        .map(|items| Box::new(get_property_define(items)));
+
+    let enum_values = object
+        .get("enum")
+        .and_then(|enum_values| enum_values.as_array())
+        .map(|enum_values| {
+            enum_values
+                .iter()
+                .filter_map(|item| item.as_str())
+                .map(|item| item.to_string())
+                .collect::<Vec<String>>()
+        });
+    let properties = object
+        .get("properties")
+        .and_then(|properties| properties.as_object())
+        .map(|properties| {
+            properties
+                .iter()
+                .map(|(key, value)| (key.clone(), Box::new(get_property_define(value))))
+                .collect::<HashMap<String, Box<JSONSchemaDefine>>>()
+        });
+
+    JSONSchemaDefine {
+        schema_type,
+        description,
+        enum_values,
+        properties,
+        required,
+        items,
     }
 }
 
