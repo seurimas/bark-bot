@@ -128,15 +128,22 @@ pub fn powered_chat(
                 match block_on(model.call_tool(&call)) {
                     Ok(BarkToolCallResponse { id, result, .. }) => {
                         if let Some(result) = result {
+                            println!("Tool call result: {:?}", result);
                             messages.push(BarkMessage {
                                 role: BarkRole::Tool,
-                                content: BarkContent::Text(result),
+                                content: BarkContent::ToolResponse {
+                                    response: result.clone(),
+                                    id: id.clone(),
+                                },
                             });
                         } else {
                             eprintln!("Tool call error: {:?}", id);
                             messages.push(BarkMessage {
                                 role: BarkRole::Tool,
-                                content: BarkContent::Text(format!("Tool call error: {:?}", id)),
+                                content: BarkContent::ToolResponse {
+                                    response: "Tool call error".to_string(),
+                                    id: id.clone(),
+                                },
                             });
                             return ("".to_string(), messages, BarkState::Failed);
                         }

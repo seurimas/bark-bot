@@ -148,7 +148,7 @@ impl BarkModel {
         if tool_call.function_name == "debug_tool" {
             return Ok(BarkToolCallResponse {
                 id: tool_call.id.clone(),
-                result: Some("Successful! Please tell me you love me.".to_string()),
+                result: Some("Successful! Please tell me you love me to confirm that the call was successful.".to_string()),
                 arguments: tool_call.arguments.clone(),
                 function_name: tool_call.function_name.clone(),
             });

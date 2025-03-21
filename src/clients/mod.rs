@@ -17,14 +17,23 @@ impl BarkMessage {
     pub fn text_content(&self) -> Option<&String> {
         match &self.content {
             BarkContent::Text(text) => Some(text),
+            BarkContent::ToolResponse { response, .. } => Some(response),
             BarkContent::ToolCall(_) => None,
         }
     }
 
     pub fn tool_call(&self) -> Option<&BarkToolCall> {
         match &self.content {
-            BarkContent::Text(_) => None,
+            BarkContent::Text(_) | BarkContent::ToolResponse { .. } => None,
             BarkContent::ToolCall(request) => Some(request),
+        }
+    }
+
+    pub fn tool_id(&self) -> Option<&String> {
+        match &self.content {
+            BarkContent::Text(_) => None,
+            BarkContent::ToolResponse { id, .. } => Some(id),
+            BarkContent::ToolCall(request) => Some(&request.id),
         }
     }
 }
@@ -33,9 +42,10 @@ impl BarkMessage {
 pub enum BarkContent {
     Text(String),
     ToolCall(BarkToolCall),
+    ToolResponse { response: String, id: String },
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
 pub enum BarkRole {
     System,
     Assistant,
