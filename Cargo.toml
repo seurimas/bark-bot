@@ -9,7 +9,7 @@ edition = "2021"
 behavior-bark = { path = "../behavior-bark" }
 serde = "1.0"
 serde_json = "1.0"
-openai_api_rust = "0.1.9"
+openai-api-rs = "6"
 env_logger = "0.11.0"
 sqlite-vec = "0.1.1"
 rusqlite = { version = "0.32.1", features = ["bundled"] }
@@ -22,3 +22,7 @@ futures = "0.3.25"
 tokio = { version = "1.42", features = ["full"] }
 mcp-client = "0.1.0"
 mcp-core = "0.1.0"
+mcp-spec = "0.1.0"
+anyhow = "1.0"
+tower-service = "0.3"
+tower = { version = "0.4", features = ["timeout", "util"] }

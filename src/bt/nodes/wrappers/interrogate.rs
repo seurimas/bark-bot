@@ -87,7 +87,7 @@ impl BehaviorTree for Interrogate {
         BarkState::Complete
     }
 
-    fn reset(self: &mut Self, _model: &Self::Model) {
+    fn reset(self: &mut Self, model: &Self::Model) {
         self.state = InterrogateState::Uninitialized;
         self.wrapped.reset(model);
     }

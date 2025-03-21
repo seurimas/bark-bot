@@ -40,7 +40,11 @@ pub enum BarkNode {
         chat: Vec<MessageValue>,
     },
     // Agent (tool-use through MCP).
-    Agent(PromptValue, Vec<String>),
+    Agent(PromptValue),
+    AgentWithFilters {
+        prompt: PromptValue,
+        tool_filters: Vec<String>,
+    },
     // Response checks
     MatchResponse(Option<String>, TextMatcher, PromptValue),
     RequireInResponse(Vec<String>, PromptValue),
@@ -142,9 +146,16 @@ impl UserNodeDefinition for BarkNode {
                 ))),
                 prompt: prompt.clone(),
             }),
-            BarkNode::Agent(prompt, tools) => Box::new(Agent {
+            BarkNode::Agent(prompt) => Box::new(Agent {
                 prompt: prompt.clone(),
-                tools: tools.clone(),
+                tool_filters: vec![],
+            }),
+            BarkNode::AgentWithFilters {
+                prompt,
+                tool_filters,
+            } => Box::new(Agent {
+                prompt: prompt.clone(),
+                tool_filters: tool_filters.clone(),
             }),
             BarkNode::SaveFile { path, content } => Box::new(SaveFile {
                 path: path.clone(),

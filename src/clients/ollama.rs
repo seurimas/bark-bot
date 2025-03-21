@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use ollama_rs::generation::options::GenerationOptions;
+use ollama_rs::generation::{options::GenerationOptions, tools::ToolCallFunction};
 
 use crate::bt::{AiModelConfig, BarkModelConfig};
 
-use super::{BarkChat, BarkResponse, BarkRole};
+use super::{BarkChat, BarkResponse, BarkRole, BarkTool};
 
 pub fn ollama_get_from_env() -> Option<BarkModelConfig> {
     if let Ok(host) = std::env::var("OLLAMA_HOST") {
@@ -28,6 +28,7 @@ pub fn ollama_get_from_env() -> Option<BarkModelConfig> {
         Some(BarkModelConfig {
             openai_models: HashMap::new(),
             ollama_models: models,
+            mcp_services: HashMap::new(),
             embedding_model,
         })
     } else {
@@ -38,6 +39,7 @@ pub fn ollama_get_from_env() -> Option<BarkModelConfig> {
 pub fn ollama_get_bark_response(
     client: &ollama_rs::Ollama,
     chat: BarkChat,
+    tools: &Vec<BarkTool>,
 ) -> Result<BarkResponse, String> {
     futures::executor::block_on(async {
         client
@@ -50,7 +52,7 @@ pub fn ollama_get_bark_response(
 
 impl From<ollama_rs::generation::chat::ChatMessageResponse> for BarkResponse {
     fn from(response: ollama_rs::generation::chat::ChatMessageResponse) -> Self {
-        Self {
+        Self::Chat {
             choices: vec![super::Choice {
                 index: 0,
                 value: response.message.content,
@@ -81,37 +83,51 @@ impl From<BarkChat> for ollama_rs::generation::chat::request::ChatMessageRequest
         }
         for message in chat.messages {
             if let Some(top) = combined.last_mut() {
-                if matches!(top.role, ollama_rs::generation::chat::MessageRole::User)
-                    == matches!(message.role, BarkRole::User)
-                {
-                    top.content.push_str(&message.content);
-                    continue;
-                } else if matches!(
-                    top.role,
-                    ollama_rs::generation::chat::MessageRole::Assistant
-                ) == matches!(message.role, BarkRole::Assistant)
-                {
-                    top.content.push_str(&message.content);
-                    continue;
-                } else if matches!(top.role, ollama_rs::generation::chat::MessageRole::System)
-                    == matches!(message.role, BarkRole::System)
-                {
-                    top.content.push_str(&message.content);
+                if let Some(text_content) = message.text_content() {
+                    if matches!(top.role, ollama_rs::generation::chat::MessageRole::User)
+                        == matches!(message.role, BarkRole::User)
+                    {
+                        top.content.push_str(text_content);
+                        continue;
+                    } else if matches!(
+                        top.role,
+                        ollama_rs::generation::chat::MessageRole::Assistant
+                    ) == matches!(message.role, BarkRole::Assistant)
+                    {
+                        top.content.push_str(text_content);
+                        continue;
+                    } else if matches!(top.role, ollama_rs::generation::chat::MessageRole::System)
+                        == matches!(message.role, BarkRole::System)
+                    {
+                        top.content.push_str(text_content);
+                        continue;
+                    }
+                } else if let Some(tool_call) = message.tool_call() {
+                    top.tool_calls.push(ollama_rs::generation::tools::ToolCall {
+                        function: serde_json::from_str::<ToolCallFunction>(
+                            format!(
+                                "{{\"name\":\"{}\", \"arguments\":{}}}",
+                                tool_call.function_name,
+                                tool_call.arguments.as_ref().unwrap_or(&"{}".to_string()),
+                            )
+                            .as_str(),
+                        )
+                        .unwrap(),
+                    });
                     continue;
                 }
+            } else if let Some(text_content) = message.text_content() {
+                combined_message.content.push_str(text_content);
+                combined_message.role = match message.role {
+                    BarkRole::User => ollama_rs::generation::chat::MessageRole::User,
+                    BarkRole::Assistant => ollama_rs::generation::chat::MessageRole::Assistant,
+                    BarkRole::System => ollama_rs::generation::chat::MessageRole::System,
+                    BarkRole::Tool => ollama_rs::generation::chat::MessageRole::Tool,
+                };
             }
-            combined_message.role = match message.role {
-                BarkRole::User => ollama_rs::generation::chat::MessageRole::User,
-                BarkRole::Assistant => ollama_rs::generation::chat::MessageRole::Assistant,
-                BarkRole::System => ollama_rs::generation::chat::MessageRole::System,
-            };
-            combined.push(combined_message);
-            combined_message = ollama_rs::generation::chat::ChatMessage {
-                role: ollama_rs::generation::chat::MessageRole::User,
-                content: "".to_string(),
-                tool_calls: vec![],
-                images: None,
-            };
+        }
+        if !combined_message.content.is_empty() {
+            combined.push(combined_message.clone());
         }
         if let Some(temperature) = chat.temperature {
             ollama_rs::generation::chat::request::ChatMessageRequest::new(chat.model, combined)

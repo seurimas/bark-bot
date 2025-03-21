@@ -6,7 +6,7 @@ use crate::prelude::*;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Agent {
     pub prompt: PromptValue,
-    pub tools: Vec<String>,
+    pub tool_filters: Vec<String>,
 }
 
 impl BehaviorTree for Agent {
@@ -24,7 +24,12 @@ impl BehaviorTree for Agent {
         if prompt.is_empty() {
             return BarkState::Failed;
         }
-        let (output, result) = powered_prompt(None, prompt.clone(), model, gas, vec![]);
+        let tools = model.get_tools(&self.tool_filters);
+        let (output, last_messages, result) =
+            powered_chat(None, prompt.clone(), model, gas, &tools);
+        controller
+            .prompts
+            .insert(VariableId::LastOutput, last_messages);
         check_gas!(gas);
         if result == BarkState::Complete {
             controller

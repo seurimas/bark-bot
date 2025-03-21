@@ -1,7 +1,14 @@
+use std::{
+    any,
+    sync::{Arc, Mutex},
+};
+
+use futures::executor::block_on;
+use mcp_client::McpClientTrait;
 use ollama_rs::Ollama;
-use openai_api_rust::{embeddings::EmbeddingsApi, Auth, OpenAI};
 
 use rusqlite::{ffi::sqlite3_auto_extension, Connection};
+use serde_json::Value;
 use sqlite_vec::sqlite3_vec_init;
 use zerocopy::AsBytes;
 
@@ -21,6 +28,8 @@ pub struct BarkModelConfig {
     pub openai_models: HashMap<String, AiModelConfig>,
     #[serde(default)]
     pub ollama_models: HashMap<String, AiModelConfig>,
+    #[serde(default)]
+    pub mcp_services: HashMap<String, McpServiceConfig>,
     pub embedding_model: (String, String, String),
 }
 
@@ -36,12 +45,25 @@ impl BarkModelConfig {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct BarkModel {
     openai_clients: HashMap<String, (String, OpenAI, Option<f32>)>,
     ollama_clients: HashMap<String, (String, Ollama, Option<f32>)>,
+    mcp_services: HashMap<String, Arc<Mutex<McpServiceClient>>>,
     embedding_client: OpenAI,
     embedding_model: String,
+}
+
+impl std::fmt::Debug for BarkModel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BarkModel")
+            .field("openai_clients", &self.openai_clients)
+            .field("ollama_clients", &self.ollama_clients)
+            .field("mcp_services", &self.mcp_services.keys())
+            .field("embedding_client", &self.embedding_client)
+            .field("embedding_model", &self.embedding_model)
+            .finish()
+    }
 }
 
 impl BarkModel {
@@ -67,7 +89,7 @@ impl BarkModel {
                         name.clone(),
                         (
                             model_name.clone(),
-                            OpenAI::new(Auth::new(api_key), url),
+                            OpenAI::new(api_key, url),
                             temperature.clone(),
                         ),
                     )
@@ -98,17 +120,61 @@ impl BarkModel {
                 },
             )
             .collect();
-        let embedding_client = OpenAI::new(
-            Auth::new(config.embedding_model.2.as_str()),
-            config.embedding_model.1.as_str(),
-        );
+        let mcp_services = block_on(initialize_mcp_service_map(&config.mcp_services));
+        let embedding_client = OpenAI::new(&config.embedding_model.2, &config.embedding_model.1);
         let embedding_model = config.embedding_model.0.clone();
 
         Self {
             openai_clients,
             ollama_clients,
+            mcp_services,
             embedding_client,
             embedding_model,
+        }
+    }
+
+    pub fn get_tools(&self, filters: &Vec<String>) -> Vec<BarkTool> {
+        if filters.iter().any(|filter| filter.eq("debug")) {
+            return vec![BarkTool::debug_tool()];
+        } else {
+            return vec![];
+        }
+    }
+
+    pub async fn call_tool(
+        &self,
+        tool_call: &BarkToolCall,
+    ) -> Result<BarkToolCallResponse, String> {
+        if tool_call.function_name == "debug_tool" {
+            return Ok(BarkToolCallResponse {
+                id: tool_call.id.clone(),
+                result: Some("Successful! Please tell me you love me.".to_string()),
+                arguments: tool_call.arguments.clone(),
+                function_name: tool_call.function_name.clone(),
+            });
+        }
+        let Some((prefix, function_name)) = tool_call.function_name.split_once("__") else {
+            return Err(format!(
+                "Invalid function name format: {}",
+                tool_call.function_name
+            ));
+        };
+        if let Some(mcp_service) = self.mcp_services.get(prefix) {
+            let mcp_service = mcp_service.lock().unwrap();
+            mcp_service
+                .call_tool(
+                    function_name,
+                    tool_call
+                        .arguments
+                        .clone()
+                        .and_then(|args| serde_json::from_str::<Value>(&args).ok())
+                        .unwrap_or(Value::Object(serde_json::Map::new())),
+                )
+                .await
+                .map_err(|e| e.to_string())
+                .and_then(|response| BarkToolCallResponse::try_parse(tool_call, response))
+        } else {
+            Err(format!("Tool {} not found", tool_call.function_name))
         }
     }
 
@@ -116,49 +182,40 @@ impl BarkModel {
         &self,
         model: Option<&String>,
         mut chat: BarkChat,
+        tools: &Vec<BarkTool>,
     ) -> Result<BarkResponse, String> {
         let model = model.unwrap_or(&"default".to_string()).clone();
         if let Some((model_name, client, temperature)) = self.openai_clients.get(&model) {
             chat.model = model_name.clone();
             chat.temperature = *temperature;
-            crate::clients::openai_get_bark_response(client, chat)
+            block_on(crate::clients::openai_get_bark_response(
+                client, chat, tools,
+            ))
         } else if let Some((model_name, client, temperature)) = self.ollama_clients.get(&model) {
             chat.model = model_name.clone();
             chat.temperature = *temperature;
-            crate::clients::ollama_get_bark_response(client, chat)
+            crate::clients::ollama_get_bark_response(client, chat, tools)
         } else {
             Err(format!("Model {} not found", model))
         }
     }
 
-    pub fn get_embedding(
-        &self,
-        text: &String,
-        gas: &mut Option<i32>,
-    ) -> Result<Vec<f32>, openai_api_rust::Error> {
-        self.embedding_client
-            .embeddings_create(&openai_api_rust::embeddings::EmbeddingsBody {
-                user: None,
-                model: self.embedding_model.clone(),
-                input: vec![text.clone()],
-            })
-            .and_then(|response| {
-                response.usage.total_tokens.map(|tokens| {
-                    if let Some(gas) = gas {
-                        *gas = *gas - tokens as i32;
-                    }
-                });
-                response
-                    .data
-                    .ok_or(openai_api_rust::Error::ApiError("No data".to_string()))
-            })
-            .and_then(|data| {
-                data[0]
-                    .embedding
-                    .clone()
-                    .ok_or(openai_api_rust::Error::ApiError("No embedding".to_string()))
-            })
-            .map(|embedding| embedding.iter().map(|f| *f as f32).collect())
+    pub fn get_embedding(&self, text: &String, gas: &mut Option<i32>) -> Result<Vec<f32>, String> {
+        block_on(
+            self.embedding_client
+                .embeddings_create(&self.embedding_model, vec![text.clone()]),
+        )
+        .and_then(|mut response| {
+            let tokens = response.usage.total_tokens;
+            if let Some(gas) = gas {
+                *gas -= tokens as i32;
+            }
+            let Some(embedding) = response.data.pop() else {
+                return Err("No embedding found".to_string());
+            };
+            Ok(embedding.embedding)
+        })
+        .map(|embedding| embedding.iter().map(|f| *f as f32).collect())
     }
 
     pub fn read_stdin(&self, line_only: bool) -> String {

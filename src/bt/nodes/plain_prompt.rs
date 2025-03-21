@@ -21,8 +21,7 @@ impl BehaviorTree for Prompt {
         if prompt.is_empty() {
             return BarkState::Failed;
         }
-        let (output, result) =
-            powered_prompt(self.ai_model.as_ref(), prompt.clone(), model, gas, vec![]);
+        let (output, result) = powered_prompt(self.ai_model.as_ref(), prompt.clone(), model, gas);
         check_gas!(gas);
         if result == BarkState::Complete {
             controller
@@ -59,8 +58,7 @@ impl BehaviorTree for MatchResponse {
         if prompt.is_empty() {
             return BarkState::Failed;
         }
-        let (output, result) =
-            powered_prompt(self.ai_model.as_ref(), prompt.clone(), model, gas, vec![]);
+        let (output, result) = powered_prompt(self.ai_model.as_ref(), prompt.clone(), model, gas);
         check_gas!(gas);
         if result == BarkState::Complete {
             controller

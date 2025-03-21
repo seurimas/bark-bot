@@ -38,7 +38,8 @@ impl BehaviorTree for InteractivePrompt {
                 } else if input.eq_ignore_ascii_case("e") {
                     let input = model.read_stdin(true);
                     let mut new_prompt: Vec<BarkMessage> = prompt.clone();
-                    let original_final_content = new_prompt.pop().unwrap().content;
+                    let original_final_content =
+                        new_prompt.pop().unwrap().text_content().unwrap().clone();
                     new_prompt.push(user(&format!("{}\n{}", original_final_content, input)));
                     results = multi_prompt(
                         self.ai_model.as_ref(),
@@ -98,7 +99,7 @@ fn multi_prompt(
     for _ in 0..count {
         print!("."); // Progress indicator
         let _ = std::io::stdout().flush();
-        let (output, result) = powered_prompt(ai_model, prompt.clone(), model, gas, vec![]);
+        let (output, result) = powered_prompt(ai_model, prompt.clone(), model, gas);
         if let Some(gas) = gas {
             if *gas <= 0 {
                 break;

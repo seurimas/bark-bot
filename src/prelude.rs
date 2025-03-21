@@ -5,6 +5,7 @@ pub use crate::bt::{BarkController, BarkFunction, BarkModel, BarkState};
 pub use behavior_bark::powered::*;
 
 pub use behavior_bark::check_gas;
+use futures::executor::block_on;
 
 pub use crate::clients::*;
 use once_cell::sync::OnceCell;
@@ -15,14 +16,14 @@ pub use serde::{Deserialize, Serialize};
 pub fn user(s: &impl ToString) -> BarkMessage {
     BarkMessage {
         role: BarkRole::User,
-        content: s.to_string(),
+        content: BarkContent::Text(s.to_string()),
     }
 }
 
 pub fn system(s: &impl ToString) -> BarkMessage {
     BarkMessage {
         role: BarkRole::System,
-        content: s.to_string(),
+        content: BarkContent::Text(s.to_string()),
     }
 }
 
@@ -53,27 +54,108 @@ pub fn powered_prompt(
     prompt: Vec<BarkMessage>,
     model: &BarkModel,
     gas: &mut Option<i32>,
-    tools: Vec<&String>,
 ) -> (String, BarkState) {
-    match model.chat_completion_create(preferred_model, prompt.into()) {
-        Ok(mut response) => {
+    match model.chat_completion_create(preferred_model, prompt.into(), &vec![]) {
+        Ok(BarkResponse::Chat { mut choices, usage }) => {
             if let Some(gas) = gas {
-                *gas = *gas - response.usage.unwrap_or(1000) as i32;
+                *gas = *gas - usage.unwrap_or(1000) as i32;
             }
-            if response.choices.is_empty() {
-                eprintln!("Prompt Error (empty): {:?}", response);
+            if choices.is_empty() {
+                eprintln!("Prompt Error (empty)");
                 return ("".to_string(), BarkState::Failed);
-            } else if response.choices[0].value.is_empty() {
-                eprintln!("Prompt Error (empty message): {:?}", response);
+            } else if choices[0].value.is_empty() {
+                eprintln!("Prompt Error (empty message)");
                 return ("".to_string(), BarkState::Failed);
-            } else if response.choices.len() > 1 {
-                eprintln!("Prompt Warning (multiple choices): {:?}", response);
+            } else if choices.len() > 1 {
+                eprintln!("Prompt Warning (multiple choices): {:?}", choices);
             }
-            (response.choices.pop().unwrap().value, BarkState::Complete)
+            (choices.pop().unwrap().value, BarkState::Complete)
+        }
+        Ok(BarkResponse::ToolCalls { calls, usage }) => {
+            if let Some(gas) = gas {
+                *gas = *gas - usage.unwrap_or(1000) as i32;
+            }
+            eprintln!("Prompt Error (tool calls): {:?}", calls);
+            ("".to_string(), BarkState::Failed)
         }
         Err(e) => {
             eprintln!("Prompt Error: {:?}", e);
             ("".to_string(), BarkState::Failed)
+        }
+    }
+}
+
+pub fn powered_chat(
+    preferred_model: Option<&String>,
+    prompt: Vec<BarkMessage>,
+    model: &BarkModel,
+    gas: &mut Option<i32>,
+    tools: &Vec<BarkTool>,
+) -> (String, Vec<BarkMessage>, BarkState) {
+    let response = model.chat_completion_create(preferred_model, prompt.clone().into(), tools);
+    match response {
+        Ok(BarkResponse::Chat { mut choices, usage }) => {
+            if let Some(gas) = gas {
+                *gas = *gas - usage.unwrap_or(1000) as i32;
+            }
+            if choices.is_empty() {
+                eprintln!("Prompt Error (empty)");
+                return ("".to_string(), prompt, BarkState::Failed);
+            } else if choices[0].value.is_empty() {
+                eprintln!("Prompt Error (empty message)");
+                return ("".to_string(), prompt, BarkState::Failed);
+            } else if choices.len() > 1 {
+                eprintln!("Prompt Warning (multiple choices): {:?}", choices);
+            }
+            let response = choices.pop().unwrap();
+            let mut messages = prompt.clone();
+            messages.push(BarkMessage {
+                role: BarkRole::Assistant,
+                content: BarkContent::Text(response.value.clone()),
+            });
+            (response.value, messages, BarkState::Complete)
+        }
+        Ok(BarkResponse::ToolCalls { calls, usage }) => {
+            if let Some(gas) = gas {
+                *gas = *gas - usage.unwrap_or(1000) as i32;
+            }
+            let mut messages = prompt.clone();
+            for call in &calls {
+                messages.push(BarkMessage {
+                    role: BarkRole::Assistant,
+                    content: BarkContent::ToolCall(call.clone()),
+                });
+                match block_on(model.call_tool(&call)) {
+                    Ok(BarkToolCallResponse { id, result, .. }) => {
+                        if let Some(result) = result {
+                            messages.push(BarkMessage {
+                                role: BarkRole::Tool,
+                                content: BarkContent::Text(result),
+                            });
+                        } else {
+                            eprintln!("Tool call error: {:?}", id);
+                            messages.push(BarkMessage {
+                                role: BarkRole::Tool,
+                                content: BarkContent::Text(format!("Tool call error: {:?}", id)),
+                            });
+                            return ("".to_string(), messages, BarkState::Failed);
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Tool call error: {:?}", e);
+                        messages.push(BarkMessage {
+                            role: BarkRole::Tool,
+                            content: BarkContent::Text(format!("Tool call error: {:?}", e)),
+                        });
+                        return ("".to_string(), messages, BarkState::Failed);
+                    }
+                }
+            }
+            return powered_chat(preferred_model, messages, model, gas, tools);
+        }
+        Err(e) => {
+            eprintln!("Prompt Error: {:?}", e);
+            ("".to_string(), prompt, BarkState::Failed)
         }
     }
 }
