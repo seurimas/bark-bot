@@ -38,6 +38,7 @@ async fn main() -> ExitCode {
     while state == BarkState::Waiting {
         state = tree.resume_with(&model, &mut controller, &mut gas, &mut None);
     }
+    println!("State: {:?}", controller);
     match state {
         BarkState::Complete => ExitCode::SUCCESS,
         BarkState::Failed => ExitCode::FAILURE,

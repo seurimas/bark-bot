@@ -1,6 +1,52 @@
+use std::collections::HashMap;
+
 use ollama_rs::generation::options::GenerationOptions;
 
+use crate::bt::{AiModelConfig, BarkModelConfig};
+
 use super::{BarkChat, BarkResponse, BarkRole};
+
+pub fn ollama_get_from_env() -> Option<BarkModelConfig> {
+    if let Ok(host) = std::env::var("OLLAMA_HOST") {
+        let mut models = HashMap::new();
+        let model = std::env::var("MODEL_NAME").unwrap_or("deepseek-r1:14b".to_string());
+        models.insert(
+            "default".to_string(),
+            AiModelConfig {
+                model_name: model.clone(),
+                api_key: "".to_string(),
+                url: host.clone(),
+                temperature: None,
+            },
+        );
+        let embedding_model = (
+            std::env::var("EMBEDDING_MODEL_NAME").unwrap_or("BAAI/bge-small-en-v1.5".to_string()),
+            "".to_string(),
+            host,
+        );
+
+        Some(BarkModelConfig {
+            openai_models: HashMap::new(),
+            ollama_models: models,
+            embedding_model,
+        })
+    } else {
+        None
+    }
+}
+
+pub fn ollama_get_bark_response(
+    client: &ollama_rs::Ollama,
+    chat: BarkChat,
+) -> Result<BarkResponse, String> {
+    futures::executor::block_on(async {
+        client
+            .send_chat_messages(chat.into())
+            .await
+            .map(|response| response.into())
+            .map_err(|e| format!("Error: {:?}", e))
+    })
+}
 
 impl From<ollama_rs::generation::chat::ChatMessageResponse> for BarkResponse {
     fn from(response: ollama_rs::generation::chat::ChatMessageResponse) -> Self {

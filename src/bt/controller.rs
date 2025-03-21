@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Serialize)]
 pub struct BarkController {
     pub text_variables: HashMap<VariableId, String>,
     pub embedding_variables: HashMap<VariableId, Vec<f32>>,
@@ -54,6 +54,28 @@ impl BarkController {
     pub fn get_text(&self, text: &TextValue) -> String {
         match text {
             TextValue::Variable(id) => self.text_variables.get(id).cloned().unwrap_or_default(),
+            TextValue::Thoughts(id) => {
+                let text = self.text_variables.get(id).cloned().unwrap_or_default();
+                if text.contains("<think>") && text.contains("</think>") {
+                    let start = text.find("<think>").unwrap() + 7;
+                    let end = text.find("</think>").unwrap();
+                    return text[start..end].to_string();
+                } else {
+                    return String::new();
+                }
+            }
+            TextValue::WithoutThoughts(id) => {
+                let text = self.text_variables.get(id).cloned().unwrap_or_default();
+                if text.contains("<think>") && text.contains("</think>") {
+                    let start = text.find("<think>").unwrap();
+                    let end = text.find("</think>").unwrap();
+                    return format!("{}{}", &text[..start], &text[end + 8..])
+                        .trim()
+                        .to_string();
+                } else {
+                    return text;
+                }
+            }
             TextValue::Simple(s) => s.clone(),
             TextValue::Multi(texts) => texts.iter().map(|t| self.get_text(t)).collect(),
             TextValue::Structured(s) => {

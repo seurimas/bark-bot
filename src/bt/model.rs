@@ -1,5 +1,5 @@
 use ollama_rs::Ollama;
-use openai_api_rust::{chat::ChatApi, embeddings::EmbeddingsApi, Auth, OpenAI};
+use openai_api_rust::{embeddings::EmbeddingsApi, Auth, OpenAI};
 
 use rusqlite::{ffi::sqlite3_auto_extension, Connection};
 use sqlite_vec::sqlite3_vec_init;
@@ -26,54 +26,10 @@ pub struct BarkModelConfig {
 
 impl BarkModelConfig {
     pub fn get_from_env() -> Self {
-        if let (Ok(auth), Some(url)) = (Auth::from_env(), &std::env::var("OPENAI_URL").ok()) {
-            let mut models = HashMap::new();
-            let model = std::env::var("MODEL_NAME").unwrap_or("mistral-nemo".to_string());
-            models.insert(
-                "default".to_string(),
-                AiModelConfig {
-                    model_name: model.clone(),
-                    api_key: auth.api_key.clone(),
-                    url: url.clone(),
-                    temperature: None,
-                },
-            );
-            let embedding_model = (
-                std::env::var("EMBEDDING_MODEL_NAME")
-                    .unwrap_or("BAAI/bge-small-en-v1.5".to_string()),
-                auth.api_key.clone(),
-                url.clone(),
-            );
-
-            Self {
-                openai_models: models,
-                ollama_models: HashMap::new(),
-                embedding_model,
-            }
-        } else if let Ok(host) = std::env::var("OLLAMA_HOST") {
-            let mut models = HashMap::new();
-            let model = std::env::var("MODEL_NAME").unwrap_or("deepseek-r1:14b".to_string());
-            models.insert(
-                "default".to_string(),
-                AiModelConfig {
-                    model_name: model.clone(),
-                    api_key: "".to_string(),
-                    url: host.clone(),
-                    temperature: None,
-                },
-            );
-            let embedding_model = (
-                std::env::var("EMBEDDING_MODEL_NAME")
-                    .unwrap_or("BAAI/bge-small-en-v1.5".to_string()),
-                "".to_string(),
-                host,
-            );
-
-            Self {
-                openai_models: HashMap::new(),
-                ollama_models: models,
-                embedding_model,
-            }
+        if let Some(open_ai) = openai_get_from_env() {
+            open_ai
+        } else if let Some(ollama) = ollama_get_from_env() {
+            ollama
         } else {
             panic!("Failed to get OpenAI auth from environment");
         }
@@ -165,38 +121,14 @@ impl BarkModel {
         if let Some((model_name, client, temperature)) = self.openai_clients.get(&model) {
             chat.model = model_name.clone();
             chat.temperature = *temperature;
-            client
-                .chat_completion_create(&chat.into())
-                .map(|response| response.into())
-                .map_err(|e| format!("Error: {:?}", e))
+            crate::clients::openai_get_bark_response(client, chat)
         } else if let Some((model_name, client, temperature)) = self.ollama_clients.get(&model) {
             chat.model = model_name.clone();
             chat.temperature = *temperature;
-            futures::executor::block_on(async {
-                client
-                    .send_chat_messages(chat.into())
-                    .await
-                    .map(|response| response.into())
-                    .map_err(|e| format!("Error: {:?}", e))
-            })
+            crate::clients::ollama_get_bark_response(client, chat)
         } else {
             Err(format!("Model {} not found", model))
         }
-    }
-
-    pub fn search(&self, query: &str) {
-        let response = ureq::get(
-            format!(
-                "{}?key={}&cx={}&q={}",
-                "https://www.googleapis.com/customsearch/v1",
-                std::env::var("GOOGLE_API_KEY").unwrap(),
-                std::env::var("GOOGLE_CX").unwrap(),
-                query
-            )
-            .as_str(),
-        )
-        .call();
-        println!("{:?}", response);
     }
 
     pub fn get_embedding(

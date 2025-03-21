@@ -21,6 +21,8 @@ pub enum PromptValue {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TextValue {
     Variable(VariableId),
+    Thoughts(VariableId),
+    WithoutThoughts(VariableId),
     Simple(String),
     Multi(Vec<TextValue>),
     Structured(HashMap<String, TextValue>),

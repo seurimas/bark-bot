@@ -1,17 +1,17 @@
 mod db;
 mod io;
+mod mcp;
 mod variables;
 use behavior_bark::powered::{BehaviorTree, UserNodeDefinition};
 pub use db::*;
 pub use io::*;
+use mcp::Agent;
 pub use variables::*;
 mod plain_prompt;
 pub use plain_prompt::*;
 mod wrappers;
 use serde::{Deserialize, Serialize};
 pub use wrappers::*;
-mod extensions;
-pub use extensions::*;
 
 use crate::prelude::read_tree;
 
@@ -39,6 +39,8 @@ pub enum BarkNode {
         choices: usize,
         chat: Vec<MessageValue>,
     },
+    // Agent (tool-use through MCP).
+    Agent(PromptValue, Vec<String>),
     // Response checks
     MatchResponse(Option<String>, TextMatcher, PromptValue),
     RequireInResponse(Vec<String>, PromptValue),
@@ -63,8 +65,6 @@ pub enum BarkNode {
     PushEmbeddingKeyValues(String, TextValue, Vec<(TextValue, TextValue)>),
     PullBestScored(String, TextValue),
     PullBestQueryMatch(String, TextValue),
-    // Search
-    Search(TextValue),
 }
 
 impl UserNodeDefinition for BarkNode {
@@ -142,6 +142,10 @@ impl UserNodeDefinition for BarkNode {
                 ))),
                 prompt: prompt.clone(),
             }),
+            BarkNode::Agent(prompt, tools) => Box::new(Agent {
+                prompt: prompt.clone(),
+                tools: tools.clone(),
+            }),
             BarkNode::SaveFile { path, content } => Box::new(SaveFile {
                 path: path.clone(),
                 content: content.clone(),
@@ -174,7 +178,6 @@ impl UserNodeDefinition for BarkNode {
                     text.clone(),
                 ]),
             )),
-            BarkNode::Search(text) => Box::new(Search(text.clone())),
         }
     }
 }

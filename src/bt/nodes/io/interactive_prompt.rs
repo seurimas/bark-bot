@@ -97,8 +97,8 @@ fn multi_prompt(
     let mut results = vec![];
     for _ in 0..count {
         print!("."); // Progress indicator
-        std::io::stdout().flush();
-        let (output, result) = powered_prompt(ai_model, prompt.clone(), model, gas);
+        let _ = std::io::stdout().flush();
+        let (output, result) = powered_prompt(ai_model, prompt.clone(), model, gas, vec![]);
         if let Some(gas) = gas {
             if *gas <= 0 {
                 break;

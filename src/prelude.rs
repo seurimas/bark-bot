@@ -31,7 +31,6 @@ pub fn score(embed_a: &[f32], embed_b: &[f32]) -> f32 {
     for (a, b) in embed_a.iter().zip(embed_b.iter()) {
         sum += (a - b).powi(2);
     }
-    println!("{}", sum);
     sum
 }
 
@@ -54,6 +53,7 @@ pub fn powered_prompt(
     prompt: Vec<BarkMessage>,
     model: &BarkModel,
     gas: &mut Option<i32>,
+    tools: Vec<&String>,
 ) -> (String, BarkState) {
     match model.chat_completion_create(preferred_model, prompt.into()) {
         Ok(mut response) => {

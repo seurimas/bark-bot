@@ -69,3 +69,34 @@ impl BehaviorTree for LoadFile {
         // Nothing to do
     }
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DumpState {
+    pub path: TextValue,
+}
+
+impl BehaviorTree for DumpState {
+    type Controller = BarkController;
+    type Model = BarkModel;
+
+    fn resume_with(
+        self: &mut Self,
+        _model: &Self::Model,
+        controller: &mut Self::Controller,
+        _gas: &mut Option<i32>,
+        mut _audit: &mut Option<BehaviorTreeAudit>,
+    ) -> BarkState {
+        let path = controller.get_text(&self.path);
+        match std::fs::write(&path, serde_json::to_string(controller).unwrap()) {
+            Ok(_) => BarkState::Complete,
+            Err(err) => {
+                eprintln!("Failed to save state: {:?}", err);
+                BarkState::Failed
+            }
+        }
+    }
+
+    fn reset(self: &mut Self, _model: &Self::Model) {
+        // Nothing to do
+    }
+}
