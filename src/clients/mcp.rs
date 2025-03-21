@@ -100,7 +100,7 @@ pub async fn initialize_mcp_tool_map(
                 for tool in tool_list.tools.iter() {
                     let tool_name = tool.name.clone();
                     let tool_name = format!("{name}__{tool_name}");
-                    if !apply_tool_filters(filters, &tool_name) {
+                    if !apply_tool_filters(filters.get(name).unwrap_or(&Vec::new()), &tool_name) {
                         continue;
                     }
                     let tool_description = tool.description.clone();

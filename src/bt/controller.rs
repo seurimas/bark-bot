@@ -5,6 +5,7 @@ pub struct BarkController {
     pub text_variables: HashMap<VariableId, String>,
     pub embedding_variables: HashMap<VariableId, Vec<f32>>,
     pub prompts: HashMap<VariableId, Vec<BarkMessage>>,
+    pub templates: HashMap<VariableId, Vec<MessageValue>>,
 }
 
 impl BarkController {
@@ -17,6 +18,27 @@ impl BarkController {
         Self {
             text_variables,
             prompts: HashMap::new(),
+            embedding_variables: HashMap::new(),
+            templates: HashMap::new(),
+        }
+    }
+
+    pub fn new_preloaded(
+        preloaded_text: HashMap<String, String>,
+        preloaded_templates: HashMap<String, Vec<MessageValue>>,
+    ) -> Self {
+        let mut text_variables = HashMap::new();
+        for (key, value) in preloaded_text {
+            text_variables.insert(VariableId::PreLoaded(key), value);
+        }
+        let mut templates = HashMap::new();
+        for (key, value) in preloaded_templates {
+            templates.insert(VariableId::PreLoaded(key), value);
+        }
+        Self {
+            text_variables,
+            prompts: HashMap::new(),
+            templates,
             embedding_variables: HashMap::new(),
         }
     }
@@ -42,6 +64,15 @@ impl BarkController {
                         MessageValue::SubPrompt(id) => {
                             if let Some(sub_prompt) = self.prompts.get(id) {
                                 chat.extend(sub_prompt.clone());
+                            }
+                        }
+                        MessageValue::Template(id) => {
+                            if let Some(template) = self.templates.get(id) {
+                                let mut sub_prompt =
+                                    self.get_prompt(&PromptValue::Chat(template.clone()));
+                                chat.append(&mut sub_prompt);
+                            } else {
+                                eprintln!("Template not found: {:?}", id);
                             }
                         }
                     }

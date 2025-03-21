@@ -9,6 +9,7 @@ pub enum VariableId {
     LastOutput,
     PreEmbed,
     User(String),
+    PreLoaded(String),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -49,4 +50,5 @@ pub enum MessageValue {
     UserVal(TextValue),
     SystemVal(TextValue),
     SubPrompt(VariableId),
+    Template(VariableId),
 }
