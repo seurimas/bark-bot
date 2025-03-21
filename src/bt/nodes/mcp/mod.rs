@@ -5,6 +5,7 @@ use crate::prelude::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Agent {
+    pub ai_model: Option<String>,
     pub prompt: PromptValue,
     pub tool_filters: Vec<String>,
 }
@@ -26,7 +27,7 @@ impl BehaviorTree for Agent {
         }
         let tools = model.get_tools(&self.tool_filters);
         let (output, last_messages, result) =
-            powered_chat(None, prompt.clone(), model, gas, &tools);
+            powered_chat(self.ai_model.as_ref(), prompt.clone(), model, gas, &tools);
         controller
             .prompts
             .insert(VariableId::LastOutput, last_messages);

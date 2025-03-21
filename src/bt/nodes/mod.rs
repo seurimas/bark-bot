@@ -45,6 +45,11 @@ pub enum BarkNode {
         prompt: PromptValue,
         tool_filters: Vec<String>,
     },
+    AgentWithFiltersAndModel {
+        prompt: PromptValue,
+        tool_filters: Vec<String>,
+        ai_model: String,
+    },
     // Response checks
     MatchResponse(Option<String>, TextMatcher, PromptValue),
     RequireInResponse(Vec<String>, PromptValue),
@@ -147,6 +152,7 @@ impl UserNodeDefinition for BarkNode {
                 prompt: prompt.clone(),
             }),
             BarkNode::Agent(prompt) => Box::new(Agent {
+                ai_model: None,
                 prompt: prompt.clone(),
                 tool_filters: vec![],
             }),
@@ -154,6 +160,16 @@ impl UserNodeDefinition for BarkNode {
                 prompt,
                 tool_filters,
             } => Box::new(Agent {
+                ai_model: None,
+                prompt: prompt.clone(),
+                tool_filters: tool_filters.clone(),
+            }),
+            BarkNode::AgentWithFiltersAndModel {
+                prompt,
+                tool_filters,
+                ai_model,
+            } => Box::new(Agent {
+                ai_model: Some(ai_model.clone()),
                 prompt: prompt.clone(),
                 tool_filters: tool_filters.clone(),
             }),
