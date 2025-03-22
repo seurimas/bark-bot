@@ -20,7 +20,7 @@
                                 "Simple": "Repeat this fact to the user: The capital of France is "
                             },
                             {
-                                "Variable": "LastOutput"
+                                "WithoutThoughts": "LastOutput"
                             }
                         ]
                     }

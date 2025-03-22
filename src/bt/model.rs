@@ -56,12 +56,11 @@ impl BarkModelConfig {
     }
 }
 
-#[derive(Clone)]
 pub struct BarkModel {
     openai_clients: HashMap<String, (String, OpenAI, Option<f32>)>,
     ollama_clients: HashMap<String, (String, Ollama, Option<f32>)>,
     mcp_services: HashMap<String, Arc<Mutex<McpServiceClient>>>,
-    tree_services: HashMap<String, Arc<Mutex<BarkFunction>>>,
+    tree_services: HashMap<String, BarkDef>,
     tools_map: HashMap<String, BarkTool>,
     embedding_client: OpenAI,
     embedding_model: String,
@@ -149,11 +148,10 @@ impl BarkModel {
             .iter()
             .map(|(name, config)| {
                 let tree = read_tree(&config.path);
-                let tree = tree.create_tree();
-                (name.clone(), Arc::new(Mutex::new(tree)))
+                (name.clone(), tree)
             })
-            .collect::<HashMap<String, Arc<Mutex<BarkFunction>>>>();
-        for (name, tree) in &tree_services {
+            .collect::<HashMap<String, BarkDef>>();
+        for (name, _tree) in &tree_services {
             tools_map.insert(
                 format!("local__{}", name),
                 BarkTool {
@@ -196,7 +194,7 @@ impl BarkModel {
         }
     }
 
-    pub async fn call_tool(
+    pub fn call_tool(
         &self,
         tool_call: &BarkToolCall,
         messages: &Vec<BarkMessage>,
@@ -217,7 +215,7 @@ impl BarkModel {
         };
         if prefix == "local" && self.tree_services.contains_key(function_name) {
             let tree_service = self.tree_services.get(function_name).unwrap();
-            let mut tree_service = tree_service.lock().unwrap();
+            let mut tree_service = tree_service.create_tree();
             let mut controller = crate::bt::BarkController::new();
             if let Some(arguments) = tool_call
                 .arguments
@@ -246,18 +244,18 @@ impl BarkModel {
             return Ok(response);
         } else if let Some(mcp_service) = self.mcp_services.get(prefix) {
             let mcp_service = mcp_service.lock().unwrap();
-            mcp_service
-                .call_tool(
+            block_on(
+                mcp_service.call_tool(
                     function_name,
                     tool_call
                         .arguments
                         .clone()
                         .and_then(|args| serde_json::from_str::<Value>(&args).ok())
                         .unwrap_or(Value::Object(serde_json::Map::new())),
-                )
-                .await
-                .map_err(|e| e.to_string())
-                .and_then(|response| BarkToolCallResponse::try_parse(tool_call, response))
+                ),
+            )
+            .map_err(|e| e.to_string())
+            .and_then(|response| BarkToolCallResponse::try_parse(tool_call, response))
         } else {
             Err(format!("Tool {} not found", tool_call.function_name))
         }
