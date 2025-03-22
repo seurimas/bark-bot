@@ -6,6 +6,7 @@ use std::{
 
 use futures::executor::block_on;
 use mcp_client::McpClientTrait;
+use mcp_core::tools;
 use ollama_rs::Ollama;
 
 use rusqlite::{ffi::sqlite3_auto_extension, Connection};
@@ -24,6 +25,13 @@ pub struct AiModelConfig {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct TreeServiceConfig {
+    pub path: String,
+    pub description: String,
+    pub parameters: Value,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct BarkModelConfig {
     #[serde(default)]
     pub openai_models: HashMap<String, AiModelConfig>,
@@ -31,6 +39,8 @@ pub struct BarkModelConfig {
     pub ollama_models: HashMap<String, AiModelConfig>,
     #[serde(default)]
     pub mcp_services: HashMap<String, McpServiceConfig>,
+    #[serde(default)]
+    pub tree_services: HashMap<String, TreeServiceConfig>,
     pub embedding_model: (String, String, String),
 }
 
@@ -51,6 +61,7 @@ pub struct BarkModel {
     openai_clients: HashMap<String, (String, OpenAI, Option<f32>)>,
     ollama_clients: HashMap<String, (String, Ollama, Option<f32>)>,
     mcp_services: HashMap<String, Arc<Mutex<McpServiceClient>>>,
+    tree_services: HashMap<String, Arc<Mutex<BarkFunction>>>,
     tools_map: HashMap<String, BarkTool>,
     embedding_client: OpenAI,
     embedding_model: String,
@@ -131,7 +142,28 @@ impl BarkModel {
                 (name.clone(), filters)
             })
             .collect::<HashMap<String, Vec<String>>>();
-        let tools_map = block_on(initialize_mcp_tool_map(&mcp_services, &service_filters));
+        let mut tools_map = block_on(initialize_mcp_tool_map(&mcp_services, &service_filters));
+
+        let tree_services = config
+            .tree_services
+            .iter()
+            .map(|(name, config)| {
+                let tree = read_tree(&config.path);
+                let tree = tree.create_tree();
+                (name.clone(), Arc::new(Mutex::new(tree)))
+            })
+            .collect::<HashMap<String, Arc<Mutex<BarkFunction>>>>();
+        for (name, tree) in &tree_services {
+            tools_map.insert(
+                format!("local__{}", name),
+                BarkTool {
+                    name: name.clone(),
+                    description: config.tree_services[name].description.clone(),
+                    parameters: config.tree_services[name].parameters.clone(),
+                },
+            );
+        }
+
         let embedding_client = OpenAI::new(&config.embedding_model.2, &config.embedding_model.1);
         let embedding_model = config.embedding_model.0.clone();
 
@@ -139,6 +171,7 @@ impl BarkModel {
             openai_clients,
             ollama_clients,
             mcp_services,
+            tree_services,
             tools_map,
             embedding_client,
             embedding_model,
@@ -166,6 +199,7 @@ impl BarkModel {
     pub async fn call_tool(
         &self,
         tool_call: &BarkToolCall,
+        messages: &Vec<BarkMessage>,
     ) -> Result<BarkToolCallResponse, String> {
         if tool_call.function_name == "debug_tool" {
             return Ok(BarkToolCallResponse {
@@ -181,7 +215,36 @@ impl BarkModel {
                 tool_call.function_name
             ));
         };
-        if let Some(mcp_service) = self.mcp_services.get(prefix) {
+        if prefix == "local" && self.tree_services.contains_key(function_name) {
+            let tree_service = self.tree_services.get(function_name).unwrap();
+            let mut tree_service = tree_service.lock().unwrap();
+            let mut controller = crate::bt::BarkController::new();
+            if let Some(arguments) = tool_call
+                .arguments
+                .clone()
+                .and_then(|args| serde_json::from_str::<HashMap<String, String>>(&args).ok())
+            {
+                for (key, value) in arguments {
+                    controller
+                        .text_variables
+                        .insert(VariableId::PreLoaded(key), value);
+                }
+            }
+            controller
+                .prompts
+                .insert(VariableId::LastOutput, messages.clone());
+            tree_service.resume_with(self, &mut controller, &mut None, &mut None);
+            let response = BarkToolCallResponse {
+                id: tool_call.id.clone(),
+                result: controller
+                    .text_variables
+                    .get(&VariableId::LastOutput)
+                    .cloned(),
+                arguments: tool_call.arguments.clone(),
+                function_name: tool_call.function_name.clone(),
+            };
+            return Ok(response);
+        } else if let Some(mcp_service) = self.mcp_services.get(prefix) {
             let mcp_service = mcp_service.lock().unwrap();
             mcp_service
                 .call_tool(

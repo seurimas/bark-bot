@@ -125,7 +125,7 @@ pub fn powered_chat(
                     role: BarkRole::Assistant,
                     content: BarkContent::ToolCall(call.clone()),
                 });
-                match block_on(model.call_tool(&call)) {
+                match block_on(model.call_tool(&call, &prompt)) {
                     Ok(BarkToolCallResponse { id, result, .. }) => {
                         if let Some(result) = result {
                             messages.push(BarkMessage {

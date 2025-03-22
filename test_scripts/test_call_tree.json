@@ -1,0 +1,23 @@
+{
+    "Sequence": [
+        {
+            "User": {
+                "AgentWithFilters": {
+                    "prompt": {
+                        "Quick": "Call the local__test function with \"local\" as its single argument. That's all I want you to do."
+                    },
+                    "tool_filters": [
+                        "local__test"
+                    ]
+                }
+            }
+        },
+        {
+            "User": {
+                "PrintLine": {
+                    "Variable": "LastOutput"
+                }
+            }
+        }
+    ]
+}

@@ -1,0 +1,31 @@
+{
+    "Sequence": [
+        {
+            "User": {
+                "PromptWith": [
+                    "local",
+                    {
+                        "Quick": "What is the capital of France? Keep your answer concise, providing just the name of the city."
+                    }
+                ]
+            }
+        },
+        {
+            "User": {
+                "SetText": [
+                    "LastOutput",
+                    {
+                        "Multi": [
+                            {
+                                "Simple": "Repeat this fact to the user: The capital of France is "
+                            },
+                            {
+                                "Variable": "LastOutput"
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    ]
+}

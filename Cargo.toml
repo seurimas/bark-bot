@@ -26,3 +26,4 @@ mcp-spec = "0.1.0"
 anyhow = "1.0"
 tower-service = "0.3"
 tower = { version = "0.4", features = ["timeout", "util"] }
+thread_local = "1.1"
