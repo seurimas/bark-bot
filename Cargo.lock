@@ -179,7 +179,6 @@ dependencies = [
  "futures",
  "mcp-client",
  "mcp-core",
- "mcp-spec",
  "ollama-rs",
  "once_cell",
  "openai-api-rs",
@@ -1184,15 +1183,13 @@ dependencies = [
 
 [[package]]
 name = "mcp-client"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c7e00680bf6bd7430397536dd07ce9027aebb2854c2270b2da1f489bc20955b"
+version = "1.0.7"
 dependencies = [
  "anyhow",
  "async-trait",
  "eventsource-client",
  "futures",
- "mcp-spec",
+ "mcp-core",
  "rand",
  "reqwest 0.11.27",
  "serde",
@@ -1208,26 +1205,7 @@ dependencies = [
 
 [[package]]
 name = "mcp-core"
-version = "0.1.42"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18a8e4375fe44579ffd9c7a8d682059ee33f1bf2bf36cad94cbe1ebff2e5b111"
-dependencies = [
- "anyhow",
- "async-trait",
- "futures",
- "libc",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "url",
-]
-
-[[package]]
-name = "mcp-spec"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a294f4fcf9c3a0b3d168937947ecb906feb691089dd9fbbefc9707c8a4557163"
+version = "1.0.7"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2489,7 +2467,6 @@ dependencies = [
  "form_urlencoded",
  "idna",
  "percent-encoding",
- "serde",
 ]
 
 [[package]]

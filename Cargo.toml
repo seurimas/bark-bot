@@ -20,9 +20,8 @@ once_cell = "1.21.1"
 ollama-rs = { git = "https://github.com/seurimas/ollama-rs.git", branch = "master" }
 futures = "0.3.25"
 tokio = { version = "1.42", features = ["full"] }
-mcp-client = "0.1.0"
-mcp-core = "0.1.0"
-mcp-spec = "0.1.0"
+mcp-client = { path = "../rust-sdk/crates/mcp-client" }
+mcp-core = { path = "../rust-sdk/crates/mcp-core" }
 anyhow = "1.0"
 tower-service = "0.3"
 tower = { version = "0.4", features = ["timeout", "util"] }

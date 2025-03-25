@@ -78,6 +78,7 @@ pub fn openai_get_from_env() -> Option<BarkModelConfig> {
             ollama_models: HashMap::new(),
             tree_services: HashMap::new(),
             mcp_services: HashMap::new(),
+            mcp_sse_hosts: HashMap::new(),
             embedding_model,
         })
     } else {

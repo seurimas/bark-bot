@@ -1,12 +1,12 @@
 use std::{
     any,
     collections::hash_map::Entry,
+    path::Path,
     sync::{Arc, Mutex},
 };
 
 use futures::executor::block_on;
 use mcp_client::McpClientTrait;
-use mcp_core::tools;
 use ollama_rs::Ollama;
 
 use rusqlite::{ffi::sqlite3_auto_extension, Connection};
@@ -40,6 +40,8 @@ pub struct BarkModelConfig {
     #[serde(default)]
     pub mcp_services: HashMap<String, McpServiceConfig>,
     #[serde(default)]
+    pub mcp_sse_hosts: HashMap<String, String>,
+    #[serde(default)]
     pub tree_services: HashMap<String, TreeServiceConfig>,
     pub embedding_model: (String, String, String),
 }
@@ -57,9 +59,10 @@ impl BarkModelConfig {
 }
 
 pub struct BarkModel {
+    pub tree_root: String,
     openai_clients: HashMap<String, (String, OpenAI, Option<f32>)>,
     ollama_clients: HashMap<String, (String, Ollama, Option<f32>)>,
-    mcp_services: HashMap<String, Arc<Mutex<McpServiceClient>>>,
+    mcp_services: HashMap<String, Arc<Mutex<Box<dyn McpServiceClient>>>>,
     tree_services: HashMap<String, BarkDef>,
     tools_map: HashMap<String, BarkTool>,
     embedding_client: OpenAI,
@@ -79,7 +82,7 @@ impl std::fmt::Debug for BarkModel {
 }
 
 impl BarkModel {
-    pub fn new(config: BarkModelConfig) -> Self {
+    pub fn new(config: BarkModelConfig, tree_root: String) -> Self {
         unsafe {
             sqlite3_auto_extension(Some(std::mem::transmute(sqlite3_vec_init as *const ())));
         }
@@ -132,7 +135,10 @@ impl BarkModel {
                 },
             )
             .collect();
-        let mcp_services = block_on(initialize_mcp_service_map(&config.mcp_services));
+        let mut mcp_services = block_on(initialize_mcp_service_map(&config.mcp_services));
+        mcp_services.extend(block_on(initialize_sse_mcp_service_map(
+            &config.mcp_sse_hosts,
+        )));
         let service_filters = config
             .mcp_services
             .iter()
@@ -141,13 +147,13 @@ impl BarkModel {
                 (name.clone(), filters)
             })
             .collect::<HashMap<String, Vec<String>>>();
-        let mut tools_map = block_on(initialize_mcp_tool_map(&mcp_services, &service_filters));
+        let mut tools_map = initialize_mcp_tool_map(&mcp_services, &service_filters);
 
         let tree_services = config
             .tree_services
             .iter()
             .map(|(name, config)| {
-                let tree = read_tree(&config.path);
+                let tree = read_tree(&tree_root, &config.path);
                 (name.clone(), tree)
             })
             .collect::<HashMap<String, BarkDef>>();
@@ -166,6 +172,7 @@ impl BarkModel {
         let embedding_model = config.embedding_model.0.clone();
 
         Self {
+            tree_root,
             openai_clients,
             ollama_clients,
             mcp_services,
@@ -243,19 +250,18 @@ impl BarkModel {
             };
             return Ok(response);
         } else if let Some(mcp_service) = self.mcp_services.get(prefix) {
-            let mcp_service = mcp_service.lock().unwrap();
-            block_on(
-                mcp_service.call_tool(
+            let mut mcp_service = mcp_service.lock().unwrap();
+            mcp_service
+                .call_mcp(
                     function_name,
                     tool_call
                         .arguments
                         .clone()
                         .and_then(|args| serde_json::from_str::<Value>(&args).ok())
                         .unwrap_or(Value::Object(serde_json::Map::new())),
-                ),
-            )
-            .map_err(|e| e.to_string())
-            .and_then(|response| BarkToolCallResponse::try_parse(tool_call, response))
+                )
+                .map_err(|e| e.to_string())
+                .and_then(|response| BarkToolCallResponse::try_parse(tool_call, response))
         } else {
             Err(format!("Tool {} not found", tool_call.function_name))
         }

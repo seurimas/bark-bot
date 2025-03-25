@@ -2,7 +2,7 @@ use std::{env::args, process::ExitCode};
 
 use bark_bot::{
     bt::BarkModelConfig,
-    prelude::{read_tree, BarkState, TREE_ROOT},
+    prelude::{read_tree, BarkState},
 };
 
 #[tokio::main]
@@ -28,12 +28,11 @@ async fn main() -> ExitCode {
         .nth(4)
         .map(|s| s.parse().expect("Failed to parse gas"))
         .unwrap_or(10000);
-    TREE_ROOT.set(tree_root).expect("Failed to set TREE_ROOT");
-    let tree = read_tree(&tree_path);
+    let tree = read_tree(&tree_root, &tree_path);
     let mut tree = tree.create_tree();
     let mut controller = bark_bot::bt::BarkController::new();
     let mut gas = Some(gas);
-    let model = bark_bot::bt::BarkModel::new(model_config);
+    let model = bark_bot::bt::BarkModel::new(model_config, tree_root);
     let mut state = tree.resume_with(&model, &mut controller, &mut gas, &mut None);
     while state == BarkState::Waiting {
         state = tree.resume_with(&model, &mut controller, &mut gas, &mut None);

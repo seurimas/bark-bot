@@ -28,6 +28,7 @@ pub fn ollama_get_from_env() -> Option<BarkModelConfig> {
             ollama_models: models,
             tree_services: HashMap::new(),
             mcp_services: HashMap::new(),
+            mcp_sse_hosts: HashMap::new(),
             embedding_model,
         })
     } else {

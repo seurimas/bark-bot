@@ -10,6 +10,8 @@ use futures::executor::block_on;
 pub use crate::clients::*;
 use once_cell::sync::OnceCell;
 pub use std::collections::HashMap;
+use std::path::Path;
+use std::sync::{Arc, Mutex};
 
 pub use serde::{Deserialize, Serialize};
 
@@ -35,12 +37,10 @@ pub fn score(embed_a: &[f32], embed_b: &[f32]) -> f32 {
     sum
 }
 
-pub static TREE_ROOT: OnceCell<String> = OnceCell::new();
-
-pub fn read_tree(tree_path: &str) -> BarkDef {
-    let root = std::path::Path::new(TREE_ROOT.get().expect("TREE_ROOT not set"));
+pub fn read_tree(root: impl AsRef<Path>, tree_path: &str) -> BarkDef {
+    let root = root.as_ref();
     let tree = std::fs::read_to_string(std::path::Path::join(root, tree_path))
-        .expect("Failed to read tree file");
+        .expect(format!("Failed to read tree file: {:?}", tree_path).as_str());
     let tree: crate::bt::BarkDef = if tree_path.ends_with("json") {
         serde_json::from_str(&tree).expect("Failed to parse JSON tree file")
     } else {

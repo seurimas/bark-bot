@@ -2,7 +2,7 @@ mod db;
 mod io;
 mod mcp;
 mod variables;
-use behavior_bark::powered::{BehaviorTree, UserNodeDefinition};
+use behavior_bark::powered::{BehaviorTree, BehaviorTreeAudit, UserNodeDefinition};
 pub use db::*;
 pub use io::*;
 use mcp::Agent;
@@ -15,7 +15,7 @@ pub use wrappers::*;
 
 use crate::prelude::read_tree;
 
-use super::{values::*, BarkController, BarkModel};
+use super::{values::*, BarkController, BarkModel, BarkState};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BarkNode {
@@ -76,6 +76,42 @@ pub enum BarkNode {
     PullBestQueryMatch(String, TextValue),
 }
 
+enum Subtree {
+    Uninitialized(String),
+    Initialized(
+        Box<dyn BehaviorTree<Model = BarkModel, Controller = BarkController> + Send + Sync>,
+    ),
+}
+
+impl BehaviorTree for Subtree {
+    type Model = BarkModel;
+    type Controller = BarkController;
+
+    fn resume_with(
+        &mut self,
+        model: &Self::Model,
+        controller: &mut Self::Controller,
+        gas: &mut Option<i32>,
+        audit: &mut Option<BehaviorTreeAudit>,
+    ) -> BarkState {
+        match self {
+            Subtree::Uninitialized(name) => {
+                let tree = read_tree(&model.tree_root, name);
+                *self = Subtree::Initialized(tree.create_tree());
+                self.resume_with(model, controller, gas, audit)
+            }
+            Subtree::Initialized(tree) => tree.resume_with(model, controller, gas, audit),
+        }
+    }
+
+    fn reset(self: &mut Self, model: &Self::Model) {
+        match self {
+            Subtree::Uninitialized(_) => {}
+            Subtree::Initialized(tree) => tree.reset(model),
+        }
+    }
+}
+
 impl UserNodeDefinition for BarkNode {
     type Controller = BarkController;
     type Model = BarkModel;
@@ -85,10 +121,7 @@ impl UserNodeDefinition for BarkNode {
     ) -> Box<dyn BehaviorTree<Model = Self::Model, Controller = Self::Controller> + Send + Sync>
     {
         match self {
-            BarkNode::Subtree(name) => {
-                let tree_def = read_tree(name);
-                tree_def.create_tree()
-            }
+            BarkNode::Subtree(name) => Box::new(Subtree::Uninitialized(name.clone())),
             BarkNode::SetText(id, text) => Box::new(SetText(id.clone(), text.clone())),
             BarkNode::StartPrompt(id, messages) => {
                 Box::new(StartPrompt(id.clone(), messages.clone()))
