@@ -47,6 +47,14 @@ impl BarkController {
         match prompt {
             PromptValue::Variable(id) => self.prompts.get(id).cloned().unwrap_or(vec![]),
             PromptValue::Quick(s) => vec![user(s)],
+            PromptValue::Template(var) => {
+                if let Some(template) = self.templates.get(var) {
+                    self.get_prompt(&PromptValue::Chat(template.clone()))
+                } else {
+                    eprintln!("Template not found: {:?}", var);
+                    vec![]
+                }
+            }
             PromptValue::Chat(messages) => {
                 let mut chat = vec![];
                 for message in messages {

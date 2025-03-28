@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use tokio::runtime::Handle;
+
 use crate::bt::{AiModelConfig, BarkModelConfig};
 
 use super::{BarkChat, BarkResponse, BarkRole, BarkTool};
@@ -36,18 +38,16 @@ pub fn ollama_get_from_env() -> Option<BarkModelConfig> {
     }
 }
 
-pub fn ollama_get_bark_response(
+pub async fn ollama_get_bark_response(
     client: &ollama_rs::Ollama,
     chat: BarkChat,
     tools: &Vec<BarkTool>,
 ) -> Result<BarkResponse, String> {
-    futures::executor::block_on(async {
-        client
-            .send_chat_messages(chat.into())
-            .await
-            .map(|response| response.into())
-            .map_err(|e| format!("Error: {:?}", e))
-    })
+    client
+        .send_chat_messages(chat.into())
+        .await
+        .map(|response| response.into())
+        .map_err(|e| format!("Error: {:?}", e))
 }
 
 impl From<ollama_rs::generation::chat::ChatMessageResponse> for BarkResponse {

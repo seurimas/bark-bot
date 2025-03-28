@@ -13,6 +13,7 @@ use openai_api_rs::v1::{
     types::{Function, FunctionParameters, JSONSchemaDefine, JSONSchemaType},
 };
 use serde_json::Value;
+use tokio::runtime::Handle;
 
 use crate::bt::{AiModelConfig, BarkModelConfig};
 

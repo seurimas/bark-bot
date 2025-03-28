@@ -5,7 +5,6 @@ pub use crate::bt::{BarkController, BarkFunction, BarkModel, BarkState};
 pub use behavior_bark::powered::*;
 
 pub use behavior_bark::check_gas;
-use futures::executor::block_on;
 
 pub use crate::clients::*;
 use once_cell::sync::OnceCell;
@@ -39,12 +38,15 @@ pub fn score(embed_a: &[f32], embed_b: &[f32]) -> f32 {
 
 pub fn read_tree(root: impl AsRef<Path>, tree_path: &str) -> BarkDef {
     let root = root.as_ref();
-    let tree = std::fs::read_to_string(std::path::Path::join(root, tree_path))
-        .expect(format!("Failed to read tree file: {:?}", tree_path).as_str());
+    let path = std::path::Path::join(root, tree_path);
+    let tree = std::fs::read_to_string(&path)
+        .expect(format!("Failed to read tree file: {:?}", path).as_str());
     let tree: crate::bt::BarkDef = if tree_path.ends_with("json") {
         serde_json::from_str(&tree).expect("Failed to parse JSON tree file")
-    } else {
+    } else if tree_path.ends_with("ron") {
         ron::from_str(&tree).expect("Failed to parse RON tree file")
+    } else {
+        panic!("Unsupported tree file format: {:?}", tree_path)
     };
     tree
 }
@@ -92,7 +94,9 @@ pub fn powered_chat(
     gas: &mut Option<i32>,
     tools: &Vec<BarkTool>,
 ) -> (String, Vec<BarkMessage>, BarkState) {
+    println!("Prompt: {:?}", prompt);
     let response = model.chat_completion_create(preferred_model, prompt.clone().into(), tools);
+    println!("Response: {:?}", response);
     match response {
         Ok(BarkResponse::Chat { mut choices, usage }) => {
             if let Some(gas) = gas {

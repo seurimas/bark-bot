@@ -15,6 +15,7 @@ pub enum VariableId {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PromptValue {
     Variable(VariableId),
+    Template(VariableId),
     Quick(String),
     Chat(Vec<MessageValue>),
 }

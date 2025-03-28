@@ -5,13 +5,12 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use futures::executor::block_on;
-use mcp_client::McpClientTrait;
 use ollama_rs::Ollama;
 
 use rusqlite::{ffi::sqlite3_auto_extension, Connection};
 use serde_json::Value;
 use sqlite_vec::sqlite3_vec_init;
+use tokio::runtime::Handle;
 use zerocopy::AsBytes;
 
 use crate::{clients::*, prelude::*};
@@ -135,10 +134,9 @@ impl BarkModel {
                 },
             )
             .collect();
-        let mut mcp_services = block_on(initialize_mcp_service_map(&config.mcp_services));
-        mcp_services.extend(block_on(initialize_sse_mcp_service_map(
-            &config.mcp_sse_hosts,
-        )));
+        let handle = Handle::current();
+        let mut mcp_services = handle.block_on(initialize_mcp_service_map(&config.mcp_services));
+        mcp_services.extend(handle.block_on(initialize_sse_mcp_service_map(&config.mcp_sse_hosts)));
         let service_filters = config
             .mcp_services
             .iter()
@@ -159,7 +157,7 @@ impl BarkModel {
             .collect::<HashMap<String, BarkDef>>();
         for (name, _tree) in &tree_services {
             tools_map.insert(
-                format!("local__{}", name),
+                format!("tool__{}", name),
                 BarkTool {
                     name: name.clone(),
                     description: config.tree_services[name].description.clone(),
@@ -220,7 +218,7 @@ impl BarkModel {
                 tool_call.function_name
             ));
         };
-        if prefix == "local" && self.tree_services.contains_key(function_name) {
+        if prefix == "tool" && self.tree_services.contains_key(function_name) {
             let tree_service = self.tree_services.get(function_name).unwrap();
             let mut tree_service = tree_service.create_tree();
             let mut controller = crate::bt::BarkController::new();
@@ -274,37 +272,42 @@ impl BarkModel {
         tools: &Vec<BarkTool>,
     ) -> Result<BarkResponse, String> {
         let model = model.unwrap_or(&"default".to_string()).clone();
+        let handle = Handle::current();
         if let Some((model_name, client, temperature)) = self.openai_clients.get(&model) {
             chat.model = model_name.clone();
             chat.temperature = *temperature;
-            block_on(crate::clients::openai_get_bark_response(
+            handle.block_on(crate::clients::openai_get_bark_response(
                 client, chat, tools,
             ))
         } else if let Some((model_name, client, temperature)) = self.ollama_clients.get(&model) {
             chat.model = model_name.clone();
             chat.temperature = *temperature;
-            crate::clients::ollama_get_bark_response(client, chat, tools)
+            handle.block_on(crate::clients::ollama_get_bark_response(
+                client, chat, tools,
+            ))
         } else {
             Err(format!("Model {} not found", model))
         }
     }
 
     pub fn get_embedding(&self, text: &String, gas: &mut Option<i32>) -> Result<Vec<f32>, String> {
-        block_on(
-            self.embedding_client
-                .embeddings_create(&self.embedding_model, vec![text.clone()]),
-        )
-        .and_then(|mut response| {
-            let tokens = response.usage.total_tokens;
-            if let Some(gas) = gas {
-                *gas -= tokens as i32;
-            }
-            let Some(embedding) = response.data.pop() else {
-                return Err("No embedding found".to_string());
-            };
-            Ok(embedding.embedding)
-        })
-        .map(|embedding| embedding.iter().map(|f| *f as f32).collect())
+        let handle = Handle::current();
+        handle
+            .block_on(
+                self.embedding_client
+                    .embeddings_create(&self.embedding_model, vec![text.clone()]),
+            )
+            .and_then(|mut response| {
+                let tokens = response.usage.total_tokens;
+                if let Some(gas) = gas {
+                    *gas -= tokens as i32;
+                }
+                let Some(embedding) = response.data.pop() else {
+                    return Err("No embedding found".to_string());
+                };
+                Ok(embedding.embedding)
+            })
+            .map(|embedding| embedding.iter().map(|f| *f as f32).collect())
     }
 
     pub fn read_stdin(&self, line_only: bool) -> String {

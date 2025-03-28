@@ -32,15 +32,19 @@ async fn main() -> ExitCode {
     let mut tree = tree.create_tree();
     let mut controller = bark_bot::bt::BarkController::new();
     let mut gas = Some(gas);
-    let model = bark_bot::bt::BarkModel::new(model_config, tree_root);
-    let mut state = tree.resume_with(&model, &mut controller, &mut gas, &mut None);
-    while state == BarkState::Waiting {
-        state = tree.resume_with(&model, &mut controller, &mut gas, &mut None);
-    }
-    println!("State: {:?}", controller);
-    match state {
-        BarkState::Complete => ExitCode::SUCCESS,
-        BarkState::Failed => ExitCode::FAILURE,
-        _ => panic!("Unexpected state: {:?}", state),
-    }
+    tokio::task::spawn_blocking(move || {
+        let model = bark_bot::bt::BarkModel::new(model_config, tree_root);
+        let mut state = tree.resume_with(&model, &mut controller, &mut gas, &mut None);
+        while state == BarkState::Waiting {
+            state = tree.resume_with(&model, &mut controller, &mut gas, &mut None);
+        }
+        println!("State: {:?}", controller);
+        match state {
+            BarkState::Complete => ExitCode::SUCCESS,
+            BarkState::Failed => ExitCode::FAILURE,
+            _ => panic!("Unexpected state: {:?}", state),
+        }
+    })
+    .await
+    .expect("Failed to join task")
 }

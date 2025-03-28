@@ -1,7 +1,12 @@
-use futures::executor::block_on;
-use mcp_core::{
-    protocol::{CallToolResult, JsonRpcMessage, ListToolsResult},
-    Content, Tool,
+use rmcp::{
+    model::{
+        CallToolRequestParam, CallToolResult, ClientCapabilities, ClientInfo, Content, ErrorData,
+        Implementation, ListToolsResult, Tool,
+    },
+    serve_client,
+    service::RunningService,
+    transport::{SseTransport, TokioChildProcess},
+    ClientHandler, Error, RoleClient, ServiceExt,
 };
 use serde_json::Value;
 use std::{
@@ -11,50 +16,49 @@ use std::{
     pin::Pin,
     sync::{Arc, Mutex},
 };
+use tokio::{process::Command, runtime::Handle};
 
 use anyhow::Result;
-use mcp_client::{
-    transport::stdio::StdioTransportHandle, ClientCapabilities, ClientInfo, Error as ClientError,
-    McpClient, McpClientTrait, McpService, SseTransport, StdioTransport, Transport,
-};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use tower::{timeout::Timeout, Service};
 
 use super::{apply_tool_filters, BarkTool, BarkToolCall, BarkToolCallResponse};
 
-pub trait McpServiceClient {
+pub trait McpServiceClient: Send + Sync {
     fn call_mcp(
         &mut self,
         tool_name: &str,
         arguments: Value,
-    ) -> core::result::Result<mcp_core::protocol::CallToolResult, mcp_client::Error>;
+    ) -> core::result::Result<CallToolResult, Error>;
 
-    fn list_mcp_tools(
-        &self,
-        next_cursor: Option<String>,
-    ) -> Result<ListToolsResult, mcp_client::Error>;
+    fn list_mcp_tools(&self) -> Result<ListToolsResult, Error>;
 }
 
-impl<S> McpServiceClient for McpClient<S>
+impl<S> McpServiceClient for RunningService<RoleClient, S>
 where
-    S: Service<JsonRpcMessage, Response = JsonRpcMessage> + Clone + Send + Sync + 'static,
-    S::Error: Into<mcp_client::Error>,
-    S::Future: Send,
+    S: ClientHandler,
 {
     fn call_mcp(
         &mut self,
         tool_name: &str,
         arguments: Value,
-    ) -> core::result::Result<mcp_core::protocol::CallToolResult, mcp_client::Error> {
-        block_on(self.call_tool(tool_name, arguments))
+    ) -> core::result::Result<CallToolResult, Error> {
+        let tool_request = CallToolRequestParam {
+            name: tool_name.to_string().into(),
+            arguments: arguments.as_object().cloned(),
+        };
+        let handle = Handle::current();
+        handle
+            .block_on(self.call_tool(tool_request))
+            .map_err(|e| Error::internal_error(e.to_string(), None))
     }
 
-    fn list_mcp_tools(
-        &self,
-        next_cursor: Option<String>,
-    ) -> Result<ListToolsResult, mcp_client::Error> {
-        block_on(self.list_tools(next_cursor))
+    fn list_mcp_tools(&self) -> Result<ListToolsResult, Error> {
+        let handle = Handle::current();
+        handle
+            .block_on(self.list_tools(None))
+            .map_err(|e| Error::internal_error(e.to_string(), None))
     }
 }
 
@@ -75,69 +79,39 @@ pub struct McpServiceConfig {
 }
 
 pub async fn initialize_stdio_mcp_service(
+    name: &str,
     config: &McpServiceConfig,
-) -> Result<Box<dyn McpServiceClient>, ClientError> {
-    // 1) Create the transport
-    let transport = StdioTransport::new(
-        config.command.clone(),
-        config.args.clone(),
-        config.env.clone(),
-    );
+) -> Result<Box<dyn McpServiceClient>> {
+    let transport = TokioChildProcess::new(
+        Command::new(&config.command)
+            .args(&config.args)
+            .envs(&config.env),
+    )?;
 
-    // 2) Start the transport to get a handle
-    let transport_handle = transport.start().await?;
-
-    // 3) Create the service with timeout middleware
-    let service = McpService::with_timeout(
-        transport_handle,
-        Duration::from_secs_f32(config.timeout_seconds),
-    );
-
-    // 4) Create the client with the middleware-wrapped service
-    let mut client = McpClient::new(service);
-
-    // Initialize
-    let server_info = client
-        .initialize(
-            ClientInfo {
-                name: "test-client".into(),
-                version: "1.0.0".into(),
-            },
-            ClientCapabilities::default(),
-        )
-        .await?;
+    let client_info = ClientInfo {
+        capabilities: ClientCapabilities::default(),
+        protocol_version: Default::default(),
+        client_info: Implementation {
+            name: name.to_string(),
+            version: "1.0.0".to_string(),
+        },
+    };
+    let client = client_info.serve(transport).await?;
 
     Ok(Box::new(client))
 }
 
-async fn initialize_sse_mcp_service(host: &str) -> Result<Box<dyn McpServiceClient>, ClientError> {
-    // 1) Create the transport
-    let transport = SseTransport::new(host.to_string(), HashMap::new());
-
-    // 2) Start the transport to get a handle
-    let transport_handle = transport.start().await?;
-
-    // 3) Create the service with timeout middleware
-    let service = McpService::with_timeout(
-        transport_handle,
-        Duration::from_secs_f32(default_timeout_seconds()),
-    );
-
-    // 4) Create the client with the middleware-wrapped service
-    let mut client = McpClient::new(service);
-
-    // Initialize
-    let server_info = client
-        .initialize(
-            ClientInfo {
-                name: "test-client".into(),
-                version: "1.0.0".into(),
-            },
-            ClientCapabilities::default(),
-        )
-        .await?;
-
-    // Check if the server supports the SSE transport
+async fn initialize_sse_mcp_service(name: &str, host: &str) -> Result<Box<dyn McpServiceClient>> {
+    let transport = SseTransport::start(host).await?;
+    let client_info = ClientInfo {
+        protocol_version: Default::default(),
+        capabilities: ClientCapabilities::default(),
+        client_info: Implementation {
+            name: name.to_string(),
+            version: "1.0.0".to_string(),
+        },
+    };
+    let client = client_info.serve(transport).await?;
     Ok(Box::new(client))
 }
 
@@ -146,7 +120,7 @@ pub async fn initialize_mcp_service_map(
 ) -> HashMap<String, Arc<Mutex<Box<dyn McpServiceClient>>>> {
     let mut mcp_services = HashMap::new();
     for (name, service_config) in config.iter() {
-        match initialize_stdio_mcp_service(service_config).await {
+        match initialize_stdio_mcp_service(name, service_config).await {
             Ok(client) => {
                 mcp_services.insert(name.clone(), Arc::new(Mutex::new(client)));
             }
@@ -163,7 +137,7 @@ pub async fn initialize_sse_mcp_service_map(
 ) -> HashMap<String, Arc<Mutex<Box<dyn McpServiceClient>>>> {
     let mut mcp_services = HashMap::new();
     for (name, host) in hosts.iter() {
-        match initialize_sse_mcp_service(host).await {
+        match initialize_sse_mcp_service(name, host).await {
             Ok(client) => {
                 mcp_services.insert(name.clone(), Arc::new(Mutex::new(client)));
             }
@@ -182,7 +156,7 @@ pub fn initialize_mcp_tool_map(
     let mut mcp_tools = HashMap::new();
     for (name, client) in clients.iter() {
         let client = client.lock().unwrap();
-        let tools = client.list_mcp_tools(None);
+        let tools = client.list_mcp_tools();
         match tools {
             Ok(tool_list) => {
                 for tool in tool_list.tools.iter() {
@@ -192,13 +166,12 @@ pub fn initialize_mcp_tool_map(
                         continue;
                     }
                     let tool_description = tool.description.clone();
-                    let tool_parameters = tool.input_schema.clone();
                     mcp_tools.insert(
                         tool_name.clone(),
                         BarkTool {
                             name: tool_name,
-                            description: tool_description,
-                            parameters: tool_parameters,
+                            description: tool_description.to_string(),
+                            parameters: serde_json::Value::Object((*tool.input_schema).clone()),
                         },
                     );
                 }
@@ -214,9 +187,9 @@ pub fn initialize_mcp_tool_map(
 impl From<Tool> for BarkTool {
     fn from(tool: Tool) -> Self {
         Self {
-            name: tool.name,
-            description: tool.description,
-            parameters: tool.input_schema,
+            name: tool.name.to_string(),
+            description: tool.description.to_string(),
+            parameters: serde_json::Value::Object((*tool.input_schema).clone()),
         }
     }
 }
@@ -224,9 +197,12 @@ impl From<Tool> for BarkTool {
 impl From<BarkTool> for Tool {
     fn from(tool: BarkTool) -> Self {
         Self {
-            name: tool.name,
-            description: tool.description,
-            input_schema: tool.parameters,
+            name: tool.name.into(),
+            description: tool.description.into(),
+            input_schema: match tool.parameters {
+                serde_json::Value::Object(obj) => Arc::new(obj),
+                _ => Arc::new(serde_json::Map::new()),
+            },
         }
     }
 }
@@ -242,12 +218,12 @@ impl BarkToolCallResponse {
             let Some(top) = value.content.pop() else {
                 return Err(format!("Empty tool call response"));
             };
-            match top {
-                Content::Text(text) => Ok(BarkToolCallResponse {
+            match top.as_text() {
+                Some(text) => Ok(BarkToolCallResponse {
                     id: call.id.clone(),
                     function_name: call.function_name.clone(),
                     arguments: call.arguments.clone(),
-                    result: Some(text.text),
+                    result: Some(text.text.clone()),
                 }),
                 _ => Err(format!("Unsupported tool response type")),
             }
