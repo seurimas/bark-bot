@@ -21,8 +21,8 @@ pub fn ollama_get_from_env() -> Option<BarkModelConfig> {
         );
         let embedding_model = (
             std::env::var("EMBEDDING_MODEL_NAME").unwrap_or("BAAI/bge-small-en-v1.5".to_string()),
-            "".to_string(),
             host,
+            None,
         );
 
         Some(BarkModelConfig {

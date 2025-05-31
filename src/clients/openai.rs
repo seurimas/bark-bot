@@ -70,8 +70,8 @@ pub fn openai_get_from_env() -> Option<BarkModelConfig> {
         );
         let embedding_model = (
             std::env::var("EMBEDDING_MODEL_NAME").unwrap_or("BAAI/bge-small-en-v1.5".to_string()),
-            api_key.clone(),
             url.clone(),
+            Some(api_key.clone()),
         );
 
         Some(BarkModelConfig {

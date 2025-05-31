@@ -18,8 +18,9 @@ impl BehaviorTree for InteractivePrompt {
         model: &Self::Model,
         controller: &mut Self::Controller,
         gas: &mut Option<i32>,
-        mut _audit: &mut Option<BehaviorTreeAudit>,
+        mut audit: &mut Option<BehaviorTreeAudit>,
     ) -> BarkState {
+        audit.enter(&"InteractivePrompt");
         let prompt = controller.get_prompt(&self.prompt);
         if prompt.is_empty() {
             return BarkState::Failed;
@@ -27,6 +28,8 @@ impl BehaviorTree for InteractivePrompt {
         let mut results = multi_prompt(self.ai_model.as_ref(), self.choices, &prompt, model, gas);
         check_gas!(gas);
         if results.is_empty() {
+            audit.mark(&"No results from multi_prompt");
+            audit.exit(&"InteractivePrompt", BarkState::Failed);
             BarkState::Failed
         } else {
             loop {
@@ -34,6 +37,8 @@ impl BehaviorTree for InteractivePrompt {
                 ask_for_input(&results);
                 let input = model.read_stdin(true);
                 if input.eq_ignore_ascii_case("q") {
+                    audit.mark(&"User chose to quit");
+                    audit.exit(&"InteractivePrompt", BarkState::Failed);
                     return BarkState::Failed;
                 } else if input.eq_ignore_ascii_case("e") {
                     let input = model.read_stdin(true);
@@ -41,6 +46,7 @@ impl BehaviorTree for InteractivePrompt {
                     let original_final_content =
                         new_prompt.pop().unwrap().text_content().unwrap().clone();
                     new_prompt.push(user(&format!("{}\n{}", original_final_content, input)));
+                    audit.mark(&"User extended the original prompt");
                     results = multi_prompt(
                         self.ai_model.as_ref(),
                         self.choices,
@@ -49,9 +55,11 @@ impl BehaviorTree for InteractivePrompt {
                         gas,
                     );
                 } else if input.eq_ignore_ascii_case("r") {
+                    audit.mark(&"User chose to retry the prompt");
                     results =
                         multi_prompt(self.ai_model.as_ref(), self.choices, &prompt, model, gas);
                 } else if input.eq_ignore_ascii_case("x") {
+                    audit.mark(&"User chose to extend the prompt with context");
                     let input = model.read_stdin(true);
                     let new_messages: Vec<BarkMessage> = results
                         .iter()
@@ -69,6 +77,8 @@ impl BehaviorTree for InteractivePrompt {
                     results = multi_prompt(self.ai_model.as_ref(), 3, &new_prompt, model, gas);
                 } else if let Ok(index) = input.parse::<usize>() {
                     if index < results.len() {
+                        audit.mark(&format!("User selected index {}", index));
+                        audit.exit(&"InteractivePrompt", BarkState::Complete);
                         controller
                             .text_variables
                             .insert(VariableId::LastOutput, results[index].clone());

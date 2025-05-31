@@ -27,18 +27,22 @@ async fn main() -> ExitCode {
     let gas: i32 = args()
         .nth(4)
         .map(|s| s.parse().expect("Failed to parse gas"))
-        .unwrap_or(10000);
+        .unwrap_or(100000);
     let tree = read_tree(&tree_root, &tree_path);
     let mut tree = tree.create_tree();
     let mut controller = bark_bot::bt::BarkController::new();
     let mut gas = Some(gas);
     tokio::task::spawn_blocking(move || {
+        let mut audit = Some(Default::default());
         let model = bark_bot::bt::BarkModel::new(model_config, tree_root);
-        let mut state = tree.resume_with(&model, &mut controller, &mut gas, &mut None);
+        let mut state = tree.resume_with(&model, &mut controller, &mut gas, &mut audit);
         while state == BarkState::Waiting {
-            state = tree.resume_with(&model, &mut controller, &mut gas, &mut None);
+            state = tree.resume_with(&model, &mut controller, &mut gas, &mut audit);
         }
-        println!("State: {:?}", controller);
+        println!("State: {:?} {:?}", state, controller);
+        if let Some(audit) = audit {
+            println!("Audit: {:?}", audit);
+        }
         match state {
             BarkState::Complete => ExitCode::SUCCESS,
             BarkState::Failed => ExitCode::FAILURE,

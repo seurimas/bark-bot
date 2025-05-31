@@ -5,8 +5,9 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use ollama_rs::Ollama;
+use ollama_rs::{generation::embeddings::request::GenerateEmbeddingsRequest, Ollama};
 
+use openai_api_rs::v1::embedding::EmbeddingResponse;
 use rusqlite::{ffi::sqlite3_auto_extension, Connection};
 use serde_json::Value;
 use sqlite_vec::sqlite3_vec_init;
@@ -42,7 +43,7 @@ pub struct BarkModelConfig {
     pub mcp_sse_hosts: HashMap<String, String>,
     #[serde(default)]
     pub tree_services: HashMap<String, TreeServiceConfig>,
-    pub embedding_model: (String, String, String),
+    pub embedding_model: (String, String, Option<String>),
 }
 
 impl BarkModelConfig {
@@ -57,6 +58,49 @@ impl BarkModelConfig {
     }
 }
 
+#[derive(Debug)]
+enum EmbeddingClientModel {
+    OpenAI(OpenAI, String),
+    Ollama(Ollama, String),
+}
+
+impl EmbeddingClientModel {
+    pub async fn embeddings_create(&self, text: String) -> Result<(Vec<f32>, usize), String> {
+        match self {
+            EmbeddingClientModel::OpenAI(client, model_name) => client
+                .embeddings_create(model_name, vec![text])
+                .await
+                .and_then(|mut response: EmbeddingResponse| {
+                    let usage = response.usage.total_tokens;
+                    Ok((
+                        response
+                            .data
+                            .pop()
+                            .ok_or_else(|| "No embeddings returned from OpenAI".to_string())?
+                            .embedding,
+                        usage as usize,
+                    ))
+                }),
+            EmbeddingClientModel::Ollama(client, model_name) => client
+                .generate_embeddings(GenerateEmbeddingsRequest::new(
+                    model_name.clone(),
+                    text.into(),
+                ))
+                .await
+                .map_err(|e| format!("Error generating embeddings: {:?}", e))
+                .and_then(|mut response| {
+                    Ok((
+                        response
+                            .embeddings
+                            .pop()
+                            .ok_or_else(|| "No embeddings returned from Ollama".to_string())?,
+                        0,
+                    ))
+                }),
+        }
+    }
+}
+
 pub struct BarkModel {
     pub tree_root: String,
     openai_clients: HashMap<String, (String, OpenAI, Option<f32>)>,
@@ -64,8 +108,7 @@ pub struct BarkModel {
     mcp_services: HashMap<String, Arc<Mutex<Box<dyn McpServiceClient>>>>,
     tree_services: HashMap<String, BarkDef>,
     tools_map: HashMap<String, BarkTool>,
-    embedding_client: OpenAI,
-    embedding_model: String,
+    embedding_client: EmbeddingClientModel,
 }
 
 impl std::fmt::Debug for BarkModel {
@@ -75,7 +118,6 @@ impl std::fmt::Debug for BarkModel {
             .field("ollama_clients", &self.ollama_clients)
             .field("mcp_services", &self.mcp_services.keys())
             .field("embedding_client", &self.embedding_client)
-            .field("embedding_model", &self.embedding_model)
             .finish()
     }
 }
@@ -166,8 +208,20 @@ impl BarkModel {
             );
         }
 
-        let embedding_client = OpenAI::new(&config.embedding_model.2, &config.embedding_model.1);
-        let embedding_model = config.embedding_model.0.clone();
+        let embedding_client = if config.embedding_model.2.is_some() {
+            EmbeddingClientModel::OpenAI(
+                OpenAI::new(
+                    &config.embedding_model.2.unwrap(),
+                    &config.embedding_model.1.clone(),
+                ),
+                config.embedding_model.0.clone(),
+            )
+        } else {
+            EmbeddingClientModel::Ollama(
+                Ollama::try_new(&config.embedding_model.1).unwrap(),
+                config.embedding_model.0.clone(),
+            )
+        };
 
         Self {
             tree_root,
@@ -177,7 +231,6 @@ impl BarkModel {
             tree_services,
             tools_map,
             embedding_client,
-            embedding_model,
         }
     }
 
@@ -293,21 +346,13 @@ impl BarkModel {
     pub fn get_embedding(&self, text: &String, gas: &mut Option<i32>) -> Result<Vec<f32>, String> {
         let handle = Handle::current();
         handle
-            .block_on(
-                self.embedding_client
-                    .embeddings_create(&self.embedding_model, vec![text.clone()]),
-            )
-            .and_then(|mut response| {
-                let tokens = response.usage.total_tokens;
+            .block_on(self.embedding_client.embeddings_create(text.clone()))
+            .and_then(|(embedding, usage)| {
                 if let Some(gas) = gas {
-                    *gas -= tokens as i32;
+                    *gas -= usage as i32;
                 }
-                let Some(embedding) = response.data.pop() else {
-                    return Err("No embedding found".to_string());
-                };
-                Ok(embedding.embedding)
+                Ok(embedding)
             })
-            .map(|embedding| embedding.iter().map(|f| *f as f32).collect())
     }
 
     pub fn read_stdin(&self, line_only: bool) -> String {

@@ -12,8 +12,10 @@ impl BehaviorTree for PullBestScored {
         model: &Self::Model,
         controller: &mut Self::Controller,
         gas: &mut Option<i32>,
-        mut _audit: &mut Option<BehaviorTreeAudit>,
+        mut audit: &mut Option<BehaviorTreeAudit>,
     ) -> BarkState {
+        println!("PullBestScored: {}", self.0);
+        audit.enter(&"PullBestScored");
         let text = controller.get_text(&self.1);
         let embedding = model.get_embedding(&text, gas);
         check_gas!(gas);
@@ -23,13 +25,21 @@ impl BehaviorTree for PullBestScored {
                     controller
                         .text_variables
                         .insert(VariableId::LastOutput, best_match);
+                    audit.mark(&format!("Pulled best match for: {}", self.0));
+                    audit.exit(&"PullBestScored", BarkState::Complete);
                     BarkState::Complete
                 } else {
                     eprintln!("Failed to pull best match");
+                    audit.mark(&format!("Failed to pull best match for: {}", self.0));
+                    audit.exit(&"PullBestScored", BarkState::Failed);
                     BarkState::Failed
                 }
             }
-            Err(_) => BarkState::Failed,
+            Err(err) => {
+                audit.mark(&format!("Failed to get embedding: {}", err));
+                audit.exit(&"PullBestScored", BarkState::Failed);
+                BarkState::Failed
+            }
         }
     }
 
