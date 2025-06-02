@@ -9,7 +9,7 @@ use bark_bot::{
 async fn main() -> ExitCode {
     env_logger::init();
 
-    let tree_path = args().nth(1).expect("Expected tree argument");
+    let mut tree_path = args().nth(1).expect("Expected tree argument");
     let model_config = args()
         .nth(2)
         .map(|s| {
@@ -18,11 +18,18 @@ async fn main() -> ExitCode {
         })
         .unwrap_or_else(|| BarkModelConfig::get_from_env());
     let tree_root = args().nth(3).unwrap_or_else(|| {
-        std::path::Path::new(&tree_path)
+        let new_tree_path = std::path::Path::new(&tree_path)
+            .file_name()
+            .expect("Failed to get file name from tree path")
+            .to_string_lossy()
+            .to_string();
+        let tree_root = std::path::Path::new(&tree_path)
             .parent()
             .unwrap()
             .to_string_lossy()
-            .to_string()
+            .to_string();
+        tree_path = new_tree_path;
+        tree_root
     });
     let gas: i32 = args()
         .nth(4)

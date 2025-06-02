@@ -59,7 +59,15 @@ pub enum BarkNode {
         path: TextValue,
         content: TextValue,
     },
+    SaveIndexedFile {
+        path: TextValue,
+        content: TextValue,
+    },
     LoadFile {
+        path: TextValue,
+        content: VariableId,
+    },
+    LoadIndexedFile {
         path: TextValue,
         content: VariableId,
     },
@@ -210,9 +218,19 @@ impl UserNodeDefinition for BarkNode {
                 path: path.clone(),
                 content: content.clone(),
             }),
+            BarkNode::SaveIndexedFile { path, content } => Box::new(SaveIndexedFile {
+                path: path.clone(),
+                content: content.clone(),
+                index: 0,
+            }),
             BarkNode::LoadFile { path, content } => Box::new(LoadFile {
                 path: path.clone(),
                 content: content.clone(),
+            }),
+            BarkNode::LoadIndexedFile { path, content } => Box::new(LoadIndexedFile {
+                path: path.clone(),
+                content: content.clone(),
+                index: 0,
             }),
             BarkNode::ReadLine(id) => Box::new(ReadStdio(true, id.clone())),
             BarkNode::ReadLines(id) => Box::new(ReadStdio(false, id.clone())),

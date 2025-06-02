@@ -1,5 +1,5 @@
 # Ideas
 - Test workflow (.json.test -> a list of inputs and expected outputs for the associated .json file)
-- Classification nodes (using embeddings APIs, specially train BERT? https://huggingface.co/docs/transformers/tasks/sequence_classification)
+- Classification nodes (using embeddings APIs, specially train bge-m3? https://huggingface.co/docs/transformers/tasks/sequence_classification)
 - Svelte-based UI for editting and visualizing the behavior tree
 - Svelte-based UI for running the behavior tree
