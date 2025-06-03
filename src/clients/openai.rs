@@ -110,7 +110,6 @@ pub async fn openai_get_bark_response(
 
 impl From<ChatCompletionResponse> for BarkResponse {
     fn from(mut response: ChatCompletionResponse) -> Self {
-        println!("Response: {:?}", response);
         let Some(choice) = response.choices.pop() else {
             println!("Empty response: {:?}", response);
             return BarkResponse::Chat {

@@ -65,9 +65,9 @@ pub fn powered_prompt(
             if choices.is_empty() {
                 eprintln!("Prompt Error (empty)");
                 return ("".to_string(), BarkState::Failed);
-            } else if choices[0].value.is_empty() {
-                eprintln!("Prompt Error (empty message)");
-                return ("".to_string(), BarkState::Failed);
+            // } else if choices[0].value.is_empty() {
+            //     eprintln!("Prompt Error (empty message)");
+            //     return ("".to_string(), BarkState::Failed);
             } else if choices.len() > 1 {
                 eprintln!("Prompt Warning (multiple choices): {:?}", choices);
             }
@@ -94,9 +94,7 @@ pub fn powered_chat(
     gas: &mut Option<i32>,
     tools: &Vec<BarkTool>,
 ) -> (String, Vec<BarkMessage>, BarkState) {
-    println!("Prompt: {:?}", prompt);
     let response = model.chat_completion_create(preferred_model, prompt.clone().into(), tools);
-    println!("Response: {:?}", response);
     match response {
         Ok(BarkResponse::Chat { mut choices, usage }) => {
             if let Some(gas) = gas {
@@ -105,9 +103,9 @@ pub fn powered_chat(
             if choices.is_empty() {
                 eprintln!("Prompt Error (empty)");
                 return ("".to_string(), prompt, BarkState::Failed);
-            } else if choices[0].value.is_empty() {
-                eprintln!("Prompt Error (empty message)");
-                return ("".to_string(), prompt, BarkState::Failed);
+            // } else if choices[0].value.is_empty() {
+            //     eprintln!("Prompt Error (empty message)");
+            //     return ("".to_string(), prompt, BarkState::Failed);
             } else if choices.len() > 1 {
                 eprintln!("Prompt Warning (multiple choices): {:?}", choices);
             }
