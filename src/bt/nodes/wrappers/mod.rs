@@ -1,7 +1,7 @@
 use crate::prelude::*;
 
 mod branch_by_score;
-pub use branch_by_score::BranchByScore;
+// pub use branch_by_score::BranchByScore;
 mod interrogate;
 pub use interrogate::Interrogate;
 mod knn;
@@ -14,7 +14,7 @@ pub use repeat_until::RepeatUntil;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BarkWrapper {
     Interrogate(TextValue),
-    BranchByScore(TextValue, Vec<TextValue>),
+    // BranchByScore(TextValue, Vec<TextValue>),
     Knn(String, TextValue, usize),
     KnnQuery(String, TextValue, usize),
     Repl(Option<TextValue>, Vec<TextValue>),
@@ -32,9 +32,9 @@ impl UserWrapperDefinition<BarkNode> for BarkWrapper {
             BarkWrapper::Interrogate(text_value) => {
                 Box::new(Interrogate::new(text_value.clone(), nodes))
             }
-            BarkWrapper::BranchByScore(compared, options) => {
-                Box::new(BranchByScore::new(compared.clone(), options.clone(), nodes))
-            }
+            // BarkWrapper::BranchByScore(compared, options) => {
+            //     Box::new(BranchByScore::new(compared.clone(), options.clone(), nodes))
+            // }
             BarkWrapper::Knn(path, compared, k) => {
                 Box::new(Knn::new(path.clone(), compared.clone(), *k, nodes))
             }

@@ -9,14 +9,8 @@ use rmcp::{
     ClientHandler, Error, RoleClient, ServiceExt,
 };
 use serde_json::Value;
-use std::{
-    any,
-    collections::HashMap,
-    future::Future,
-    pin::Pin,
-    sync::{Arc, Mutex},
-};
-use tokio::{process::Command, runtime::Handle};
+use std::{any, collections::HashMap, future::Future, pin::Pin, sync::Arc};
+use tokio::{process::Command, runtime::Handle, sync::Mutex, task::JoinHandle};
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -26,40 +20,42 @@ use tower::{timeout::Timeout, Service};
 use super::{apply_tool_filters, BarkTool, BarkToolCall, BarkToolCallResponse};
 
 pub trait McpServiceClient: Send + Sync {
-    fn call_mcp(
-        &mut self,
-        tool_name: &str,
-        arguments: Value,
-    ) -> core::result::Result<CallToolResult, Error>;
+    // fn call_mcp(
+    //     &mut self,
+    //     tool_name: &str,
+    //     arguments: Value,
+    // ) -> JoinHandle<core::result::Result<CallToolResult, Error>>;
 
-    fn list_mcp_tools(&self) -> Result<ListToolsResult, Error>;
+    // fn list_mcp_tools(&self) -> JoinHandle<Result<ListToolsResult, Error>>;
 }
 
 impl<S> McpServiceClient for RunningService<RoleClient, S>
 where
     S: ClientHandler,
 {
-    fn call_mcp(
-        &mut self,
-        tool_name: &str,
-        arguments: Value,
-    ) -> core::result::Result<CallToolResult, Error> {
-        let tool_request = CallToolRequestParam {
-            name: tool_name.to_string().into(),
-            arguments: arguments.as_object().cloned(),
-        };
-        let handle = Handle::current();
-        handle
-            .block_on(self.call_tool(tool_request))
-            .map_err(|e| Error::internal_error(e.to_string(), None))
-    }
+    // fn call_mcp(
+    //     &mut self,
+    //     tool_name: &str,
+    //     arguments: Value,
+    // ) -> JoinHandle<core::result::Result<CallToolResult, Error>> {
+    //     let tool_request = CallToolRequestParam {
+    //         name: tool_name.to_string().into(),
+    //         arguments: arguments.as_object().cloned(),
+    //     };
+    //     tokio::spawn(async {
+    //         self.call_tool(tool_request)
+    //             .await
+    //             .map_err(|e| Error::internal_error(e.to_string(), None))
+    //     })
+    // }
 
-    fn list_mcp_tools(&self) -> Result<ListToolsResult, Error> {
-        let handle = Handle::current();
-        handle
-            .block_on(self.list_tools(None))
-            .map_err(|e| Error::internal_error(e.to_string(), None))
-    }
+    // fn list_mcp_tools(&self) -> JoinHandle<Result<ListToolsResult, Error>> {
+    //     tokio::spawn(async {
+    //         self.list_tools(None)
+    //             .await
+    //             .map_err(|e| Error::internal_error(e.to_string(), None))
+    //     })
+    // }
 }
 
 fn default_timeout_seconds() -> f32 {
@@ -149,14 +145,19 @@ pub async fn initialize_sse_mcp_service_map(
     mcp_services
 }
 
-pub fn initialize_mcp_tool_map(
+pub async fn initialize_mcp_tool_map(
     clients: &HashMap<String, Arc<Mutex<Box<dyn McpServiceClient>>>>,
     filters: &HashMap<String, Vec<String>>,
 ) -> HashMap<String, BarkTool> {
     let mut mcp_tools = HashMap::new();
     for (name, client) in clients.iter() {
-        let client = client.lock().unwrap();
-        let tools = client.list_mcp_tools();
+        let client = client.lock().await;
+        // let tools = client.list_mcp_tools().await.unwrap_or(Err(|e| {
+        //     eprintln!("Failed to list tools for service {name}: {e}");
+        //     Err(e)
+        // }));
+        let tools: Result<ListToolsResult, String> =
+            Err("Mocked error for listing tools".to_string()); // Mocked for example purposes
         match tools {
             Ok(tool_list) => {
                 for tool in tool_list.tools.iter() {

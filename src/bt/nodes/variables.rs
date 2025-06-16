@@ -1,6 +1,8 @@
+use tokio::task::JoinHandle;
+
 use crate::prelude::*;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SetText(pub VariableId, pub TextValue);
 
 impl BehaviorTree for SetText {
@@ -24,7 +26,7 @@ impl BehaviorTree for SetText {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SetTemplate(pub VariableId, pub Vec<MessageValue>);
 
 impl BehaviorTree for SetTemplate {
@@ -47,8 +49,13 @@ impl BehaviorTree for SetTemplate {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct GetEmbedding(pub TextValue, pub VariableId);
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GetEmbedding {
+    pub text: TextValue,
+    pub variable: VariableId,
+    #[serde(skip)]
+    pub join_handle: Option<JoinHandle<Result<(Vec<f32>, Option<i32>), String>>>,
+}
 
 impl BehaviorTree for GetEmbedding {
     type Controller = BarkController;
@@ -61,18 +68,27 @@ impl BehaviorTree for GetEmbedding {
         gas: &mut Option<i32>,
         mut _audit: &mut Option<BehaviorTreeAudit>,
     ) -> BarkState {
-        let text = controller.get_text(&self.0);
-        let embedding = model.get_embedding(&text, gas);
-        check_gas!(gas);
-        match embedding {
-            Ok(embedding) => {
-                controller
-                    .embedding_variables
-                    .insert(self.1.clone(), embedding);
-                BarkState::Complete
+        if let Some(join_handle) = &mut self.join_handle {
+            if let Ok(result) = try_join(join_handle) {
+                match result {
+                    Ok((embedding, new_gas)) => {
+                        *gas = new_gas;
+                        controller
+                            .embedding_variables
+                            .insert(self.variable.clone(), embedding);
+                        return BarkState::Complete;
+                    }
+                    Err(_) => {
+                        return BarkState::Failed;
+                    }
+                }
             }
-            Err(_) => BarkState::Failed,
+            return BarkState::Waiting;
         }
+        let text = controller.get_text(&self.text);
+        let model = model.clone();
+        self.join_handle = Some(tokio::spawn(model.get_embedding(text, *gas)));
+        BarkState::Waiting
     }
 
     fn reset(self: &mut Self, _model: &Self::Model) {
@@ -80,7 +96,7 @@ impl BehaviorTree for GetEmbedding {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct StartPrompt(pub VariableId, pub Vec<MessageValue>);
 
 impl BehaviorTree for StartPrompt {
@@ -103,7 +119,7 @@ impl BehaviorTree for StartPrompt {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ExtendPrompt(pub VariableId, pub Vec<MessageValue>);
 
 impl BehaviorTree for ExtendPrompt {
@@ -126,7 +142,7 @@ impl BehaviorTree for ExtendPrompt {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Unescape(pub VariableId);
 
 impl BehaviorTree for Unescape {

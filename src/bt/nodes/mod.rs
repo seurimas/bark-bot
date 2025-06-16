@@ -144,23 +144,28 @@ impl UserNodeDefinition for BarkNode {
             BarkNode::Chat(messages) => Box::new(Prompt {
                 ai_model: None,
                 prompt: PromptValue::Chat(messages.clone()),
+                join_handle: None,
             }),
             BarkNode::ChatWith(model, messages) => Box::new(Prompt {
                 ai_model: Some(model.clone()),
                 prompt: PromptValue::Chat(messages.clone()),
+                join_handle: None,
             }),
             BarkNode::Prompt(prompt) => Box::new(Prompt {
                 ai_model: None,
                 prompt: prompt.clone(),
+                join_handle: None,
             }),
             BarkNode::PromptWith(model, prompt) => Box::new(Prompt {
                 ai_model: Some(model.clone()),
                 prompt: prompt.clone(),
+                join_handle: None,
             }),
             BarkNode::InteractivePrompt { choices, chat } => Box::new(InteractivePrompt {
                 ai_model: None,
                 choices: *choices,
                 prompt: PromptValue::Chat(chat.clone()),
+                join_handle: None,
             }),
             BarkNode::InteractivePromptWith {
                 ai_model,
@@ -170,11 +175,13 @@ impl UserNodeDefinition for BarkNode {
                 ai_model: ai_model.clone(),
                 choices: *choices,
                 prompt: PromptValue::Chat(chat.clone()),
+                join_handle: None,
             }),
             BarkNode::MatchResponse(ai_model, matches, prompt) => Box::new(MatchResponse {
                 ai_model: ai_model.clone(),
                 matches: matches.clone(),
                 prompt: prompt.clone(),
+                join_handle: None,
             }),
             BarkNode::RequireInResponse(words, prompt) => Box::new(MatchResponse {
                 ai_model: None,
@@ -185,6 +192,7 @@ impl UserNodeDefinition for BarkNode {
                         .collect(),
                 ),
                 prompt: prompt.clone(),
+                join_handle: None,
             }),
             BarkNode::RejectInResponse(words, prompt) => Box::new(MatchResponse {
                 ai_model: None,
@@ -195,11 +203,13 @@ impl UserNodeDefinition for BarkNode {
                         .collect(),
                 ))),
                 prompt: prompt.clone(),
+                join_handle: None,
             }),
             BarkNode::Agent(prompt) => Box::new(Agent {
                 ai_model: None,
                 prompt: prompt.clone(),
                 tool_filters: vec![],
+                join_handle: None,
             }),
             BarkNode::AgentWithFilters {
                 prompt,
@@ -208,6 +218,7 @@ impl UserNodeDefinition for BarkNode {
                 ai_model: None,
                 prompt: prompt.clone(),
                 tool_filters: tool_filters.clone(),
+                join_handle: None,
             }),
             BarkNode::AgentWithFiltersAndModel {
                 prompt,
@@ -217,6 +228,7 @@ impl UserNodeDefinition for BarkNode {
                 ai_model: Some(ai_model.clone()),
                 prompt: prompt.clone(),
                 tool_filters: tool_filters.clone(),
+                join_handle: None,
             }),
             BarkNode::SaveFile { path, content } => Box::new(SaveFile {
                 path: path.clone(),
@@ -241,25 +253,35 @@ impl UserNodeDefinition for BarkNode {
             BarkNode::AskForInput(text) => Box::new(AskForInput(text.clone())),
             BarkNode::PrintLine(text) => Box::new(PrintLine(text.clone())),
             BarkNode::Unescape(id) => Box::new(Unescape(id.clone())),
-            BarkNode::GetEmbedding(text, id) => Box::new(GetEmbedding(text.clone(), id.clone())),
-            BarkNode::PushSimpleEmbedding(path, text) => {
-                Box::new(PushSimpleEmbedding(path.clone(), text.clone()))
-            }
-            BarkNode::PushEmbeddingKeyValues(path, text, values) => Box::new(PushValuedEmbedding(
-                path.clone(),
-                text.clone(),
-                values.clone(),
-            )),
-            BarkNode::PullBestScored(path, text) => {
-                Box::new(PullBestScored(path.clone(), text.clone()))
-            }
-            BarkNode::PullBestQueryMatch(path, text) => Box::new(PullBestScored(
-                path.clone(),
-                TextValue::Multi(vec![
+            BarkNode::GetEmbedding(text, id) => Box::new(GetEmbedding {
+                text: text.clone(),
+                variable: id.clone(),
+                join_handle: None,
+            }),
+            BarkNode::PushSimpleEmbedding(path, text) => Box::new(PushSimpleEmbedding {
+                db: path.clone(),
+                text: text.clone(),
+                join_handle: None,
+            }),
+            BarkNode::PushEmbeddingKeyValues(path, text, values) => Box::new(PushValuedEmbedding {
+                db: path.clone(),
+                text: text.clone(),
+                kvs: values.clone(),
+                join_handle: None,
+            }),
+            BarkNode::PullBestScored(path, text) => Box::new(PullBestScored {
+                db: path.clone(),
+                text: text.clone(),
+                join_handle: None,
+            }),
+            BarkNode::PullBestQueryMatch(path, text) => Box::new(PullBestScored {
+                db: path.clone(),
+                text: TextValue::Multi(vec![
                     TextValue::Variable(VariableId::PreEmbed),
                     text.clone(),
                 ]),
-            )),
+                join_handle: None,
+            }),
         }
     }
 }

@@ -1,12 +1,15 @@
 use std::io::Write;
 
 use crate::prelude::*;
+use tokio::task::JoinHandle;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct InteractivePrompt {
     pub ai_model: Option<String>,
     pub choices: usize,
     pub prompt: PromptValue,
+    #[serde(skip)]
+    pub join_handle: Option<JoinHandle<Vec<String>>>,
 }
 
 impl BehaviorTree for InteractivePrompt {
@@ -21,19 +24,14 @@ impl BehaviorTree for InteractivePrompt {
         mut audit: &mut Option<BehaviorTreeAudit>,
     ) -> BarkState {
         audit.enter(&"InteractivePrompt");
-        let prompt = controller.get_prompt(&self.prompt);
-        if prompt.is_empty() {
-            return BarkState::Failed;
-        }
-        let mut results = multi_prompt(self.ai_model.as_ref(), self.choices, &prompt, model, gas);
-        check_gas!(gas);
-        if results.is_empty() {
-            audit.mark(&"No results from multi_prompt");
-            audit.exit(&"InteractivePrompt", BarkState::Failed);
-            BarkState::Failed
-        } else {
-            loop {
-                check_gas!(gas);
+        if let Some(join_handle) = &mut self.join_handle {
+            if let Ok(results) = try_join(join_handle) {
+                if results.is_empty() && self.join_handle.is_none() {
+                    audit.mark(&"No results from multi_prompt");
+                    audit.exit(&"InteractivePrompt", BarkState::Failed);
+                    return BarkState::Failed;
+                }
+                self.join_handle = None;
                 ask_for_input(&results);
                 let input = model.read_stdin(true);
                 if input.eq_ignore_ascii_case("q") {
@@ -42,22 +40,29 @@ impl BehaviorTree for InteractivePrompt {
                     return BarkState::Failed;
                 } else if input.eq_ignore_ascii_case("e") {
                     let input = model.read_stdin(true);
-                    let mut new_prompt: Vec<BarkMessage> = prompt.clone();
+                    let mut new_prompt: Vec<BarkMessage> = controller.get_prompt(&self.prompt);
                     let original_final_content =
                         new_prompt.pop().unwrap().text_content().unwrap().clone();
                     new_prompt.push(user(&format!("{}\n{}", original_final_content, input)));
                     audit.mark(&"User extended the original prompt");
-                    results = multi_prompt(
-                        self.ai_model.as_ref(),
+                    self.join_handle = Some(tokio::spawn(multi_prompt(
+                        self.ai_model.clone(),
                         self.choices,
-                        &new_prompt,
-                        model,
-                        gas,
-                    );
+                        new_prompt,
+                        model.clone(),
+                        *gas,
+                    )));
+                    return BarkState::Waiting;
                 } else if input.eq_ignore_ascii_case("r") {
                     audit.mark(&"User chose to retry the prompt");
-                    results =
-                        multi_prompt(self.ai_model.as_ref(), self.choices, &prompt, model, gas);
+                    self.join_handle = Some(tokio::spawn(multi_prompt(
+                        self.ai_model.clone(),
+                        self.choices,
+                        controller.get_prompt(&self.prompt),
+                        model.clone(),
+                        *gas,
+                    )));
+                    return BarkState::Waiting;
                 } else if input.eq_ignore_ascii_case("x") {
                     audit.mark(&"User chose to extend the prompt with context");
                     let input = model.read_stdin(true);
@@ -74,7 +79,14 @@ impl BehaviorTree for InteractivePrompt {
                         .collect();
                     new_prompt.push(user(&"\nPrompt:\n"));
                     new_prompt.push(user(&input));
-                    results = multi_prompt(self.ai_model.as_ref(), 3, &new_prompt, model, gas);
+                    self.join_handle = Some(tokio::spawn(multi_prompt(
+                        self.ai_model.clone(),
+                        3,
+                        new_prompt,
+                        model.clone(),
+                        *gas,
+                    )));
+                    return BarkState::Waiting;
                 } else if let Ok(index) = input.parse::<usize>() {
                     if index < results.len() {
                         audit.mark(&format!("User selected index {}", index));
@@ -85,12 +97,24 @@ impl BehaviorTree for InteractivePrompt {
                         return BarkState::Complete;
                     } else {
                         println!("Invalid index. Try again or q to quit.");
+                        return BarkState::Failed; // TODO: FIX
                     }
                 } else {
                     println!("Invalid input. Try again or q to quit.");
+                    return BarkState::Failed; // TODO: FIX
                 }
+            } else {
+                return BarkState::Waiting;
             }
         }
+        self.join_handle = Some(tokio::spawn(multi_prompt(
+            self.ai_model.clone(),
+            self.choices,
+            controller.get_prompt(&self.prompt),
+            model.clone(),
+            *gas,
+        )));
+        BarkState::Waiting
     }
 
     fn reset(self: &mut Self, _model: &Self::Model) {
@@ -98,20 +122,22 @@ impl BehaviorTree for InteractivePrompt {
     }
 }
 
-fn multi_prompt(
-    ai_model: Option<&String>,
+async fn multi_prompt(
+    ai_model: Option<String>,
     count: usize,
-    prompt: &Vec<BarkMessage>,
-    model: &BarkModel,
-    gas: &mut Option<i32>,
+    prompt: Vec<BarkMessage>,
+    model: BarkModel,
+    mut gas: Option<i32>,
 ) -> Vec<String> {
     let mut results = vec![];
     for _ in 0..count {
         print!("."); // Progress indicator
         let _ = std::io::stdout().flush();
-        let (output, result) = powered_prompt(ai_model, prompt.clone(), model, gas);
+        let (output, result, new_gas) =
+            powered_prompt(ai_model.clone(), prompt.clone(), model.clone(), gas).await;
+        gas = new_gas; // TODO: handle gas properly
         if let Some(gas) = gas {
-            if *gas <= 0 {
+            if gas <= 0 {
                 break;
             }
         }

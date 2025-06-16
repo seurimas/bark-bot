@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ReadStdio(pub bool, pub VariableId);
 
 impl BehaviorTree for ReadStdio {
@@ -24,7 +24,7 @@ impl BehaviorTree for ReadStdio {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PrintLine(pub TextValue);
 
 impl BehaviorTree for PrintLine {
@@ -47,7 +47,7 @@ impl BehaviorTree for PrintLine {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct AskForInput(pub TextValue);
 
 impl BehaviorTree for AskForInput {

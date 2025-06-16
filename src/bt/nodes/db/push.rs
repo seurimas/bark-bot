@@ -1,7 +1,14 @@
+use tokio::task::JoinHandle;
+
 use crate::prelude::*;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PushSimpleEmbedding(pub String, pub TextValue);
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PushSimpleEmbedding {
+    pub db: String,
+    pub text: TextValue,
+    #[serde(skip)]
+    pub join_handle: Option<JoinHandle<Result<(Vec<f32>, Option<i32>), String>>>,
+}
 
 impl BehaviorTree for PushSimpleEmbedding {
     type Controller = BarkController;
@@ -14,19 +21,34 @@ impl BehaviorTree for PushSimpleEmbedding {
         gas: &mut Option<i32>,
         mut _audit: &mut Option<BehaviorTreeAudit>,
     ) -> BarkState {
-        let text = controller.get_text(&self.1);
-        let embedding = model.get_embedding(&text, gas);
-        check_gas!(gas);
-        match embedding {
-            Ok(embedding) => match model.push_embedding(self.0.clone(), text, embedding, None) {
-                Ok(_) => BarkState::Complete,
-                Err(err) => {
-                    eprintln!("Failed to push simple embedding: {:?}", err);
-                    BarkState::Failed
+        if let Some(join_handle) = &mut self.join_handle {
+            if let Ok(result) = try_join(join_handle) {
+                match result {
+                    Ok((embedding, new_gas)) => {
+                        *gas = new_gas;
+                        check_gas!(gas);
+                        let text = controller.get_text(&self.text);
+                        return match model.push_embedding(self.db.clone(), text, embedding, None) {
+                            Ok(_) => BarkState::Complete,
+                            Err(err) => {
+                                eprintln!("Failed to push simple embedding: {:?}", err);
+                                BarkState::Failed
+                            }
+                        };
+                    }
+                    Err(err) => {
+                        eprintln!("Failed to get embedding: {:?}", err);
+                        return BarkState::Failed;
+                    }
                 }
-            },
-            Err(_) => BarkState::Failed,
+            } else {
+                return BarkState::Waiting;
+            }
         }
+        let text = controller.get_text(&self.text);
+        let model = model.clone();
+        self.join_handle = Some(tokio::spawn(model.get_embedding(text, *gas)));
+        BarkState::Waiting
     }
 
     fn reset(self: &mut Self, _model: &Self::Model) {
@@ -34,8 +56,14 @@ impl BehaviorTree for PushSimpleEmbedding {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PushValuedEmbedding(pub String, pub TextValue, pub Vec<(TextValue, TextValue)>);
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PushValuedEmbedding {
+    pub db: String,
+    pub text: TextValue,
+    pub kvs: Vec<(TextValue, TextValue)>,
+    #[serde(skip)]
+    pub join_handle: Option<JoinHandle<Result<(Vec<f32>, Option<i32>), String>>>,
+}
 
 impl BehaviorTree for PushValuedEmbedding {
     type Controller = BarkController;
@@ -48,23 +76,43 @@ impl BehaviorTree for PushValuedEmbedding {
         gas: &mut Option<i32>,
         mut _audit: &mut Option<BehaviorTreeAudit>,
     ) -> BarkState {
-        let text = controller.get_text(&self.1);
-        let embedding = model.get_embedding(&text, gas);
-        let key_values = self
-            .2
-            .iter()
-            .map(|(k, v)| (controller.get_text(k), controller.get_text(v)))
-            .collect();
-        check_gas!(gas);
-        match embedding {
-            Ok(embedding) => {
-                match model.push_embedding(self.0.clone(), text, embedding, Some(key_values)) {
-                    Ok(_) => BarkState::Complete,
-                    Err(_) => BarkState::Failed,
+        if let Some(join_handle) = &mut self.join_handle {
+            if let Ok(result) = try_join(join_handle) {
+                match result {
+                    Ok((embedding, new_gas)) => {
+                        let key_values = self
+                            .kvs
+                            .iter()
+                            .map(|(k, v)| (controller.get_text(k), controller.get_text(v)))
+                            .collect();
+                        *gas = new_gas;
+                        check_gas!(gas);
+                        let text = controller.get_text(&self.text);
+                        return match model.push_embedding(
+                            self.db.clone(),
+                            text,
+                            embedding,
+                            Some(key_values),
+                        ) {
+                            Ok(_) => BarkState::Complete,
+                            Err(_) => BarkState::Failed,
+                        };
+                    }
+
+                    Err(err) => {
+                        eprintln!("Failed to get embedding: {:?}", err);
+                        return BarkState::Failed;
+                    }
                 }
+            } else {
+                return BarkState::Waiting;
             }
-            Err(_) => BarkState::Failed,
         }
+
+        let text = controller.get_text(&self.text);
+        let model = model.clone();
+        self.join_handle = Some(tokio::spawn(model.get_embedding(text, *gas)));
+        BarkState::Waiting
     }
 
     fn reset(self: &mut Self, _model: &Self::Model) {

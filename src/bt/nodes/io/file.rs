@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SaveFile {
     pub path: TextValue,
     pub content: TextValue,
@@ -33,7 +33,7 @@ impl BehaviorTree for SaveFile {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SaveIndexedFile {
     pub path: TextValue,
     pub content: TextValue,
@@ -75,7 +75,7 @@ impl BehaviorTree for SaveIndexedFile {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct LoadFile {
     pub path: TextValue,
     pub content: VariableId,
@@ -112,7 +112,7 @@ impl BehaviorTree for LoadFile {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct LoadIndexedFile {
     pub path: TextValue,
     pub content: VariableId,
@@ -153,7 +153,7 @@ impl BehaviorTree for LoadIndexedFile {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DumpState {
     pub path: TextValue,
 }

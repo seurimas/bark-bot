@@ -1,9 +1,5 @@
-use std::{
-    any,
-    collections::hash_map::Entry,
-    path::Path,
-    sync::{Arc, Mutex},
-};
+use std::{any, collections::hash_map::Entry, path::Path, sync::Arc};
+use tokio::sync::Mutex;
 
 use ollama_rs::{generation::embeddings::request::GenerateEmbeddingsRequest, Ollama};
 
@@ -58,7 +54,7 @@ impl BarkModelConfig {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum EmbeddingClientModel {
     OpenAI(OpenAI, String),
     Ollama(Ollama, String),
@@ -101,6 +97,7 @@ impl EmbeddingClientModel {
     }
 }
 
+#[derive(Clone)]
 pub struct BarkModel {
     pub tree_root: String,
     openai_clients: HashMap<String, (String, OpenAI, Option<f32>)>,
@@ -123,7 +120,7 @@ impl std::fmt::Debug for BarkModel {
 }
 
 impl BarkModel {
-    pub fn new(config: BarkModelConfig, tree_root: String) -> Self {
+    pub async fn new(config: BarkModelConfig, tree_root: String) -> Self {
         unsafe {
             sqlite3_auto_extension(Some(std::mem::transmute(sqlite3_vec_init as *const ())));
         }
@@ -176,9 +173,8 @@ impl BarkModel {
                 },
             )
             .collect();
-        let handle = Handle::current();
-        let mut mcp_services = handle.block_on(initialize_mcp_service_map(&config.mcp_services));
-        mcp_services.extend(handle.block_on(initialize_sse_mcp_service_map(&config.mcp_sse_hosts)));
+        let mut mcp_services = initialize_mcp_service_map(&config.mcp_services).await;
+        mcp_services.extend(initialize_sse_mcp_service_map(&config.mcp_sse_hosts).await);
         let service_filters = config
             .mcp_services
             .iter()
@@ -187,7 +183,7 @@ impl BarkModel {
                 (name.clone(), filters)
             })
             .collect::<HashMap<String, Vec<String>>>();
-        let mut tools_map = initialize_mcp_tool_map(&mcp_services, &service_filters);
+        let mut tools_map = initialize_mcp_tool_map(&mcp_services, &service_filters).await;
 
         let tree_services = config
             .tree_services
@@ -252,8 +248,8 @@ impl BarkModel {
         }
     }
 
-    pub fn call_tool(
-        &self,
+    pub async fn call_tool(
+        self,
         tool_call: &BarkToolCall,
         messages: &Vec<BarkMessage>,
     ) -> Result<BarkToolCallResponse, String> {
@@ -289,7 +285,7 @@ impl BarkModel {
             controller
                 .prompts
                 .insert(VariableId::LastOutput, messages.clone());
-            tree_service.resume_with(self, &mut controller, &mut None, &mut None);
+            tree_service.resume_with(&self, &mut controller, &mut None, &mut None);
             let response = BarkToolCallResponse {
                 id: tool_call.id.clone(),
                 result: controller
@@ -301,57 +297,62 @@ impl BarkModel {
             };
             return Ok(response);
         } else if let Some(mcp_service) = self.mcp_services.get(prefix) {
-            let mut mcp_service = mcp_service.lock().unwrap();
-            mcp_service
-                .call_mcp(
-                    function_name,
-                    tool_call
-                        .arguments
-                        .clone()
-                        .and_then(|args| serde_json::from_str::<Value>(&args).ok())
-                        .unwrap_or(Value::Object(serde_json::Map::new())),
-                )
-                .map_err(|e| e.to_string())
-                .and_then(|response| BarkToolCallResponse::try_parse(tool_call, response))
+            Err(format!(
+                "Mocked tool call for {}: {}",
+                prefix, function_name
+            ))
+            // let mut mcp_service = mcp_service.lock().await;
+            // mcp_service
+            //     .call_mcp(
+            //         function_name,
+            //         tool_call
+            //             .arguments
+            //             .clone()
+            //             .and_then(|args| serde_json::from_str::<Value>(&args).ok())
+            //             .unwrap_or(Value::Object(serde_json::Map::new())),
+            //     )
+            //     .await
+            //     .unwrap_or(Err(format!("Failed to call MCP service {}", function_name)))
+            //     .map_err(|e| e.to_string())
+            //     .and_then(|response| BarkToolCallResponse::try_parse(tool_call, response))
         } else {
             Err(format!("Tool {} not found", tool_call.function_name))
         }
     }
 
-    pub fn chat_completion_create(
-        &self,
-        model: Option<&String>,
+    pub async fn chat_completion_create(
+        self,
+        model: Option<String>,
         mut chat: BarkChat,
-        tools: &Vec<BarkTool>,
+        tools: Vec<BarkTool>,
     ) -> Result<BarkResponse, String> {
-        let model = model.unwrap_or(&"default".to_string()).clone();
-        let handle = Handle::current();
+        let model = model.unwrap_or("default".to_string());
         if let Some((model_name, client, temperature)) = self.openai_clients.get(&model) {
             chat.model = model_name.clone();
             chat.temperature = *temperature;
-            handle.block_on(crate::clients::openai_get_bark_response(
-                client, chat, tools,
-            ))
+            crate::clients::openai_get_bark_response(client, chat, &tools).await
         } else if let Some((model_name, client, temperature)) = self.ollama_clients.get(&model) {
             chat.model = model_name.clone();
             chat.temperature = *temperature;
-            handle.block_on(crate::clients::ollama_get_bark_response(
-                client, chat, tools,
-            ))
+            crate::clients::ollama_get_bark_response(client, chat, &tools).await
         } else {
             Err(format!("Model {} not found", model))
         }
     }
 
-    pub fn get_embedding(&self, text: &String, gas: &mut Option<i32>) -> Result<Vec<f32>, String> {
-        let handle = Handle::current();
-        handle
-            .block_on(self.embedding_client.embeddings_create(text.clone()))
+    pub async fn get_embedding(
+        self,
+        text: String,
+        mut gas: Option<i32>,
+    ) -> Result<(Vec<f32>, Option<i32>), String> {
+        self.embedding_client
+            .embeddings_create(text.clone())
+            .await
             .and_then(|(embedding, usage)| {
-                if let Some(gas) = gas {
+                if let Some(gas) = &mut gas {
                     *gas -= usage as i32;
                 }
-                Ok(embedding)
+                Ok((embedding, gas))
             })
     }
 

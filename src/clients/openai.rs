@@ -1,7 +1,4 @@
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
+use std::{collections::HashMap, sync::Arc};
 
 use openai_api_rs::v1::{
     api::OpenAIClient,
@@ -13,7 +10,7 @@ use openai_api_rs::v1::{
     types::{Function, FunctionParameters, JSONSchemaDefine, JSONSchemaType},
 };
 use serde_json::Value;
-use tokio::runtime::Handle;
+use tokio::sync::Mutex;
 
 use crate::bt::{AiModelConfig, BarkModelConfig};
 
@@ -37,7 +34,7 @@ impl OpenAI {
         model: &str,
         input: Vec<String>,
     ) -> Result<openai_api_rs::v1::embedding::EmbeddingResponse, String> {
-        let mut client = self.0.lock().unwrap();
+        let mut client = self.0.lock().await;
         let request = EmbeddingRequest::new(model.to_string(), input);
         client
             .embedding(request)
@@ -92,7 +89,7 @@ pub async fn openai_get_bark_response(
     chat: BarkChat,
     tools: &Vec<BarkTool>,
 ) -> Result<BarkResponse, String> {
-    let mut client = client.0.lock().unwrap();
+    let mut client = client.0.lock().await;
     let chat_request: ChatCompletionRequest = chat.into();
     let chat_request = chat_request.tools(
         tools

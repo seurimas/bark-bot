@@ -39,23 +39,20 @@ async fn main() -> ExitCode {
     let mut tree = tree.create_tree();
     let mut controller = bark_bot::bt::BarkController::new();
     let mut gas = Some(gas);
-    tokio::task::spawn_blocking(move || {
-        let mut audit = Some(Default::default());
-        let model = bark_bot::bt::BarkModel::new(model_config, tree_root);
-        let mut state = tree.resume_with(&model, &mut controller, &mut gas, &mut audit);
-        while state == BarkState::Waiting {
-            state = tree.resume_with(&model, &mut controller, &mut gas, &mut audit);
-        }
-        println!("State: {:?} {:?}", state, controller);
-        if let Some(audit) = audit {
-            println!("Audit: {:?}", audit);
-        }
-        match state {
-            BarkState::Complete => ExitCode::SUCCESS,
-            BarkState::Failed => ExitCode::FAILURE,
-            _ => panic!("Unexpected state: {:?}", state),
-        }
-    })
-    .await
-    .expect("Failed to join task")
+    // let mut audit = Some(Default::default());
+    let mut audit = None; // Disable audit for now, can be enabled later if needed
+    let model = bark_bot::bt::BarkModel::new(model_config, tree_root).await;
+    let mut state = tree.resume_with(&model, &mut controller, &mut gas, &mut audit);
+    while state == BarkState::Waiting {
+        state = tree.resume_with(&model, &mut controller, &mut gas, &mut audit);
+    }
+    println!("State: {:?} {:?}", state, controller);
+    if let Some(audit) = audit {
+        println!("Audit: {:?}", audit);
+    }
+    match state {
+        BarkState::Complete => ExitCode::SUCCESS,
+        BarkState::Failed => ExitCode::FAILURE,
+        _ => panic!("Unexpected state: {:?}", state),
+    }
 }

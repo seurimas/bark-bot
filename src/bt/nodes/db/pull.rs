@@ -1,7 +1,14 @@
+use tokio::task::JoinHandle;
+
 use crate::prelude::*;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct PullBestScored(pub String, pub TextValue);
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PullBestScored {
+    pub db: String,
+    pub text: TextValue,
+    #[serde(skip)]
+    pub join_handle: Option<JoinHandle<Result<(Vec<f32>, Option<i32>), String>>>,
+}
 
 impl BehaviorTree for PullBestScored {
     type Controller = BarkController;
@@ -14,33 +21,42 @@ impl BehaviorTree for PullBestScored {
         gas: &mut Option<i32>,
         mut audit: &mut Option<BehaviorTreeAudit>,
     ) -> BarkState {
-        println!("PullBestScored: {}", self.0);
-        audit.enter(&"PullBestScored");
-        let text = controller.get_text(&self.1);
-        let embedding = model.get_embedding(&text, gas);
-        check_gas!(gas);
-        match embedding {
-            Ok(embedding) => {
-                if let Ok(best_match) = model.pull_best_match(&self.0, embedding) {
-                    controller
-                        .text_variables
-                        .insert(VariableId::LastOutput, best_match);
-                    audit.mark(&format!("Pulled best match for: {}", self.0));
-                    audit.exit(&"PullBestScored", BarkState::Complete);
-                    BarkState::Complete
-                } else {
-                    eprintln!("Failed to pull best match");
-                    audit.mark(&format!("Failed to pull best match for: {}", self.0));
-                    audit.exit(&"PullBestScored", BarkState::Failed);
-                    BarkState::Failed
+        if let Some(join_handle) = &mut self.join_handle {
+            if let Ok(result) = try_join(join_handle) {
+                match result {
+                    Ok((embedding, new_gas)) => {
+                        *gas = new_gas;
+                        check_gas!(gas);
+                        if let Ok(best_match) = model.pull_best_match(&self.db, embedding) {
+                            controller
+                                .text_variables
+                                .insert(VariableId::LastOutput, best_match);
+                            audit.mark(&format!("Pulled best match for: {}", self.db));
+                            audit.exit(&"PullBestScored", BarkState::Complete);
+                            return BarkState::Complete;
+                        } else {
+                            eprintln!("Failed to pull best match");
+                            audit.mark(&format!("Failed to pull best match for: {}", self.db));
+                            audit.exit(&"PullBestScored", BarkState::Failed);
+                            return BarkState::Failed;
+                        }
+                    }
+                    Err(err) => {
+                        audit.mark(&format!("Failed to get embedding: {}", err));
+                        audit.exit(&"PullBestScored", BarkState::Failed);
+                        return BarkState::Failed;
+                    }
                 }
-            }
-            Err(err) => {
-                audit.mark(&format!("Failed to get embedding: {}", err));
-                audit.exit(&"PullBestScored", BarkState::Failed);
-                BarkState::Failed
+            } else {
+                return BarkState::Waiting;
             }
         }
+        println!("PullBestScored: {}", self.db);
+        audit.enter(&"PullBestScored");
+        let text = controller.get_text(&self.text);
+        let model = model.clone();
+        self.join_handle = Some(tokio::spawn(model.get_embedding(text, *gas)));
+        BarkState::Waiting
     }
 
     fn reset(self: &mut Self, _model: &Self::Model) {
