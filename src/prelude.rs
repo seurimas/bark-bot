@@ -1,7 +1,7 @@
 pub use crate::bt::values::{MessageValue, PromptValue, TextMatcher, TextValue, VariableId};
 pub use crate::bt::BarkDef;
 pub use crate::bt::BarkNode;
-pub use crate::bt::{BarkController, BarkFunction, BarkModel, BarkState};
+pub use crate::bt::{BarkController, BarkFunction, BarkModel, BarkModelConfig, BarkState};
 pub use behavior_bark::powered::*;
 
 pub use behavior_bark::check_gas;
@@ -24,6 +24,13 @@ pub fn user(s: &impl ToString) -> BarkMessage {
 pub fn system(s: &impl ToString) -> BarkMessage {
     BarkMessage {
         role: BarkRole::System,
+        content: BarkContent::Text(s.to_string()),
+    }
+}
+
+pub fn assistant(s: &impl ToString) -> BarkMessage {
+    BarkMessage {
+        role: BarkRole::Assistant,
         content: BarkContent::Text(s.to_string()),
     }
 }

@@ -61,14 +61,21 @@ impl BarkController {
                     match message {
                         MessageValue::User(s) => chat.push(user(s)),
                         MessageValue::System(s) => chat.push(system(s)),
+                        MessageValue::Assistant(s) => chat.push(assistant(s)),
                         MessageValue::UserVar(id) => chat.push(user(
                             &self.text_variables.get(id).cloned().unwrap_or_default(),
                         )),
                         MessageValue::SystemVar(id) => chat.push(system(
                             &self.text_variables.get(id).cloned().unwrap_or_default(),
                         )),
+                        MessageValue::AssistantVar(id) => chat.push(assistant(
+                            &self.text_variables.get(id).cloned().unwrap_or_default(),
+                        )),
                         MessageValue::UserVal(text) => chat.push(user(&self.get_text(text))),
                         MessageValue::SystemVal(text) => chat.push(system(&self.get_text(text))),
+                        MessageValue::AssistantVal(text) => {
+                            chat.push(assistant(&self.get_text(text)))
+                        }
                         MessageValue::SubPrompt(id) => {
                             if let Some(sub_prompt) = self.prompts.get(id) {
                                 chat.extend(sub_prompt.clone());

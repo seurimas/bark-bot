@@ -46,10 +46,13 @@ pub enum TextMatcher {
 pub enum MessageValue {
     User(String),
     System(String),
+    Assistant(String),
     UserVar(VariableId),
     SystemVar(VariableId),
+    AssistantVar(VariableId),
     UserVal(TextValue),
     SystemVal(TextValue),
+    AssistantVal(TextValue),
     SubPrompt(VariableId),
     Template(VariableId),
 }

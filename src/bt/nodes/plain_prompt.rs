@@ -19,6 +19,7 @@ impl BehaviorTree for Prompt {
     ) -> BarkState {
         let prompt = controller.get_prompt(&self.prompt);
         if prompt.is_empty() {
+            eprintln!("Prompt {:?} is empty", self.prompt);
             return BarkState::Failed;
         }
         let (output, result) = powered_prompt(self.ai_model.as_ref(), prompt.clone(), model, gas);
@@ -56,6 +57,7 @@ impl BehaviorTree for MatchResponse {
     ) -> BarkState {
         let prompt = controller.get_prompt(&self.prompt);
         if prompt.is_empty() {
+            eprintln!("Prompt {:?} is empty", self.prompt);
             return BarkState::Failed;
         }
         let (output, result) = powered_prompt(self.ai_model.as_ref(), prompt.clone(), model, gas);

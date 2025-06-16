@@ -22,6 +22,7 @@ pub enum BarkNode {
     Subtree(String),
     // Simple variable operations.
     SetText(VariableId, TextValue),
+    SetTemplate(VariableId, Vec<MessageValue>),
     StartPrompt(VariableId, Vec<MessageValue>),
     ExtendPrompt(VariableId, Vec<MessageValue>),
     GetEmbedding(TextValue, VariableId),
@@ -131,6 +132,9 @@ impl UserNodeDefinition for BarkNode {
         match self {
             BarkNode::Subtree(name) => Box::new(Subtree::Uninitialized(name.clone())),
             BarkNode::SetText(id, text) => Box::new(SetText(id.clone(), text.clone())),
+            BarkNode::SetTemplate(id, template) => {
+                Box::new(SetTemplate(id.clone(), template.clone()))
+            }
             BarkNode::StartPrompt(id, messages) => {
                 Box::new(StartPrompt(id.clone(), messages.clone()))
             }

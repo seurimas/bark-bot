@@ -59,7 +59,7 @@
                         "User": "I am going to give you a few terms. Please answer concisely how the terms are related."
                     },
                     {
-                        "System": "Okay, go ahead."
+                        "Assistant": "Okay, go ahead."
                     },
                     {
                         "User": "Here they are:"
