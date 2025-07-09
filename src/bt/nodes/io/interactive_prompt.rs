@@ -26,6 +26,7 @@ impl BehaviorTree for InteractivePrompt {
         audit.enter(&"InteractivePrompt");
         if let Some(join_handle) = &mut self.join_handle {
             if let Ok(results) = try_join(join_handle) {
+                self.join_handle = None;
                 if results.is_empty() && self.join_handle.is_none() {
                     audit.mark(&"No results from multi_prompt");
                     audit.exit(&"InteractivePrompt", BarkState::Failed);

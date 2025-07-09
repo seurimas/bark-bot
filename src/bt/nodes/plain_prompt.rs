@@ -18,10 +18,11 @@ impl BehaviorTree for Prompt {
         model: &Self::Model,
         controller: &mut Self::Controller,
         gas: &mut Option<i32>,
-        mut _audit: &mut Option<BehaviorTreeAudit>,
+        mut audit: &mut Option<BehaviorTreeAudit>,
     ) -> BarkState {
         if let Some(join_handle) = &mut self.join_handle {
             if let Ok(result) = try_join(join_handle) {
+                self.join_handle = None;
                 let (output, result, new_gas) = result;
                 *gas = new_gas;
                 check_gas!(gas);
@@ -30,12 +31,14 @@ impl BehaviorTree for Prompt {
                         .text_variables
                         .insert(VariableId::LastOutput, output.clone());
                 }
+                audit.data(&"Prompt", &"output", &output);
                 return result;
             } else {
                 return BarkState::Waiting;
             }
         }
         let prompt = controller.get_prompt(&self.prompt);
+        audit.data(&"Prompt", &"prompt", &prompt);
         if prompt.is_empty() {
             eprintln!("Prompt {:?} is empty", self.prompt);
             return BarkState::Failed;
@@ -72,10 +75,11 @@ impl BehaviorTree for MatchResponse {
         model: &Self::Model,
         controller: &mut Self::Controller,
         gas: &mut Option<i32>,
-        mut _audit: &mut Option<BehaviorTreeAudit>,
+        mut audit: &mut Option<BehaviorTreeAudit>,
     ) -> BarkState {
         if let Some(join_handle) = &mut self.join_handle {
             if let Ok(result) = try_join(join_handle) {
+                self.join_handle = None; // Clear the join handle after completion
                 let (output, result, new_gas) = result;
                 *gas = new_gas;
                 check_gas!(gas);
@@ -83,6 +87,7 @@ impl BehaviorTree for MatchResponse {
                     controller
                         .text_variables
                         .insert(VariableId::LastOutput, output.clone());
+                    audit.data(&"MatchResponse", &"output", &output);
                     if controller.text_matches(&TextValue::Simple(output), &self.matches) {
                         return BarkState::Complete;
                     } else {
@@ -96,6 +101,7 @@ impl BehaviorTree for MatchResponse {
             }
         }
         let prompt = controller.get_prompt(&self.prompt);
+        audit.data(&"MatchResponse", &"prompt", &prompt);
         if prompt.is_empty() {
             eprintln!("Prompt {:?} is empty", self.prompt);
             return BarkState::Failed;
@@ -110,6 +116,6 @@ impl BehaviorTree for MatchResponse {
     }
 
     fn reset(self: &mut Self, _model: &Self::Model) {
-        // Nothing to do
+        self.join_handle = None;
     }
 }

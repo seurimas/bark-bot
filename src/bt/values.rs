@@ -16,6 +16,7 @@ pub enum VariableId {
 pub enum PromptValue {
     Variable(VariableId),
     Template(VariableId),
+    TemplateFile(TextValue),
     Quick(String),
     Chat(Vec<MessageValue>),
 }

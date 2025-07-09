@@ -26,6 +26,7 @@ impl BehaviorTree for Agent {
     ) -> BarkState {
         if let Some(join_handle) = &mut self.join_handle {
             if let Ok((output, _, result, new_gas)) = try_join(join_handle) {
+                self.join_handle = None;
                 *gas = new_gas;
                 check_gas!(gas);
                 if result == BarkState::Complete {

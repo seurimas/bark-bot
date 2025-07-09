@@ -50,6 +50,7 @@ impl BehaviorTree for Knn {
             return BarkState::Waiting;
         } else if let Some(join_handle) = &mut self.join_handle {
             if let Ok(result) = try_join(join_handle) {
+                self.join_handle = None; // Clear the join handle after completion
                 if let Ok(result) = result {
                     let compared_embedding = result.0;
                     *gas = result.1;

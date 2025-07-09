@@ -23,6 +23,7 @@ impl BehaviorTree for PushSimpleEmbedding {
     ) -> BarkState {
         if let Some(join_handle) = &mut self.join_handle {
             if let Ok(result) = try_join(join_handle) {
+                self.join_handle = None;
                 match result {
                     Ok((embedding, new_gas)) => {
                         *gas = new_gas;
@@ -78,6 +79,7 @@ impl BehaviorTree for PushValuedEmbedding {
     ) -> BarkState {
         if let Some(join_handle) = &mut self.join_handle {
             if let Ok(result) = try_join(join_handle) {
+                self.join_handle = None; // Clear the join handle after completion
                 match result {
                     Ok((embedding, new_gas)) => {
                         let key_values = self

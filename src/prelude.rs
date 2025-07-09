@@ -83,7 +83,14 @@ pub async fn powered_prompt(
             } else if choices.len() > 1 {
                 eprintln!("Prompt Warning (multiple choices): {:?}", choices);
             }
-            (choices.pop().unwrap().value, BarkState::Complete, gas)
+            let response = choices.pop().unwrap().value;
+            if response.starts_with("<|start_header_id|>assistant<|end_header_id|>\n") {
+                // Handle special case for assistant header
+                let response =
+                    response.replace("<|start_header_id|>assistant<|end_header_id|>\n", "");
+                return (response, BarkState::Complete, gas);
+            }
+            (response, BarkState::Complete, gas)
         }
         Ok(BarkResponse::ToolCalls { calls, usage }) => {
             if let Some(gas) = &mut gas {

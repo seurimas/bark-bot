@@ -47,6 +47,22 @@ impl BarkController {
         match prompt {
             PromptValue::Variable(id) => self.prompts.get(id).cloned().unwrap_or(vec![]),
             PromptValue::Quick(s) => vec![user(s)],
+            PromptValue::TemplateFile(text_value) => {
+                let text = self.get_text(text_value);
+                match std::fs::read_to_string(&text)
+                    .map(|s| serde_json::from_str::<Vec<MessageValue>>(&s))
+                {
+                    Ok(Ok(messages)) => self.get_prompt(&PromptValue::Chat(messages)),
+                    Ok(Err(e)) => {
+                        eprintln!("Error parsing template file '{}': {}", text, e);
+                        vec![]
+                    }
+                    Err(e) => {
+                        eprintln!("Error reading template file '{}': {}", text, e);
+                        vec![]
+                    }
+                }
+            }
             PromptValue::Template(var) => {
                 if let Some(template) = self.templates.get(var) {
                     self.get_prompt(&PromptValue::Chat(template.clone()))
@@ -63,13 +79,22 @@ impl BarkController {
                         MessageValue::System(s) => chat.push(system(s)),
                         MessageValue::Assistant(s) => chat.push(assistant(s)),
                         MessageValue::UserVar(id) => chat.push(user(
-                            &self.text_variables.get(id).cloned().unwrap_or_default(),
+                            &self.text_variables.get(id).cloned().unwrap_or_else(|| {
+                                eprintln!("User variable not found: {:?}", id);
+                                String::new()
+                            }),
                         )),
                         MessageValue::SystemVar(id) => chat.push(system(
-                            &self.text_variables.get(id).cloned().unwrap_or_default(),
+                            &self.text_variables.get(id).cloned().unwrap_or_else(|| {
+                                eprintln!("User variable not found: {:?}", id);
+                                String::new()
+                            }),
                         )),
                         MessageValue::AssistantVar(id) => chat.push(assistant(
-                            &self.text_variables.get(id).cloned().unwrap_or_default(),
+                            &self.text_variables.get(id).cloned().unwrap_or_else(|| {
+                                eprintln!("User variable not found: {:?}", id);
+                                String::new()
+                            }),
                         )),
                         MessageValue::UserVal(text) => chat.push(user(&self.get_text(text))),
                         MessageValue::SystemVal(text) => chat.push(system(&self.get_text(text))),
@@ -99,9 +124,15 @@ impl BarkController {
 
     pub fn get_text(&self, text: &TextValue) -> String {
         match text {
-            TextValue::Variable(id) => self.text_variables.get(id).cloned().unwrap_or_default(),
+            TextValue::Variable(id) => self.text_variables.get(id).cloned().unwrap_or_else(|| {
+                eprintln!("User variable not found: {:?}", id);
+                String::new()
+            }),
             TextValue::Thoughts(id) => {
-                let text = self.text_variables.get(id).cloned().unwrap_or_default();
+                let text = self.text_variables.get(id).cloned().unwrap_or_else(|| {
+                    eprintln!("User variable not found: {:?}", id);
+                    String::new()
+                });
                 if text.contains("<think>") && text.contains("</think>") {
                     let start = text.find("<think>").unwrap() + 7;
                     let end = text.find("</think>").unwrap();
@@ -111,7 +142,10 @@ impl BarkController {
                 }
             }
             TextValue::WithoutThoughts(id) => {
-                let text = self.text_variables.get(id).cloned().unwrap_or_default();
+                let text = self.text_variables.get(id).cloned().unwrap_or_else(|| {
+                    eprintln!("User variable not found: {:?}", id);
+                    String::new()
+                });
                 if text.contains("<think>") && text.contains("</think>") {
                     let start = text.find("<think>").unwrap();
                     let end = text.find("</think>").unwrap();
