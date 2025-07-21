@@ -27,7 +27,7 @@ impl BarkController {
         let mut result = line.to_string();
         for (key, value) in &self.text_variables {
             let placeholder = format!(
-                "{{{}}}",
+                "{{{{{}}}}}",
                 match key {
                     VariableId::Accumulator => "accumulator",
                     VariableId::LoopValue => "loop_value",
@@ -44,6 +44,12 @@ impl BarkController {
                 );
             }
             result = result.replace(&placeholder, value);
+        }
+        if result.contains("{{") && result.contains("}}") {
+            eprintln!(
+                "Warning: Unresolved template variable: {}",
+                result[result.find("{{").unwrap()..result.find("}}").unwrap() + 2].to_string()
+            );
         }
         result
     }
