@@ -23,6 +23,50 @@ impl BarkController {
         }
     }
 
+    fn replace_template_variables(&self, line: &str) -> String {
+        let mut result = line.to_string();
+        for (key, value) in &self.text_variables {
+            let placeholder = format!(
+                "{{{}}}",
+                match key {
+                    VariableId::Accumulator => "accumulator",
+                    VariableId::LoopValue => "loop_value",
+                    VariableId::LastOutput => "last_output",
+                    VariableId::PreEmbed => "pre_embed",
+                    VariableId::User(s) => s,
+                    VariableId::PreLoaded(s) => s,
+                }
+            );
+            if result.contains(&placeholder) && value.is_empty() {
+                eprintln!(
+                    "Warning: Placeholder '{}' found in template but no value provided.",
+                    placeholder
+                );
+            }
+            result = result.replace(&placeholder, value);
+        }
+        result
+    }
+
+    pub fn template_from_str(&self, template_str: &str) -> Vec<MessageValue> {
+        template_str
+            .lines()
+            .map(|line| self.replace_template_variables(line))
+            .map(|line| {
+                if line.starts_with("user:") {
+                    MessageValue::User(line[5..].trim_start().to_string())
+                } else if line.starts_with("system:") {
+                    MessageValue::System(line[7..].trim_start().to_string())
+                } else if line.starts_with("assistant:") {
+                    MessageValue::Assistant(line[10..].trim_start().to_string())
+                } else {
+                    eprintln!("Unknown message type in template: {}", line);
+                    MessageValue::User(line.trim_start().to_string())
+                }
+            })
+            .collect()
+    }
+
     pub fn new_preloaded(
         preloaded_text: HashMap<String, String>,
         preloaded_templates: HashMap<String, Vec<MessageValue>>,
@@ -49,17 +93,28 @@ impl BarkController {
             PromptValue::Quick(s) => vec![user(s)],
             PromptValue::TemplateFile(text_value) => {
                 let text = self.get_text(text_value);
-                match std::fs::read_to_string(&text)
-                    .map(|s| serde_json::from_str::<Vec<MessageValue>>(&s))
-                {
-                    Ok(Ok(messages)) => self.get_prompt(&PromptValue::Chat(messages)),
-                    Ok(Err(e)) => {
-                        eprintln!("Error parsing template file '{}': {}", text, e);
-                        vec![]
+                if text.ends_with(".json") {
+                    // Assuming the file contains a JSON array of MessageValue
+                    match std::fs::read_to_string(&text)
+                        .map(|s| serde_json::from_str::<Vec<MessageValue>>(&s))
+                    {
+                        Ok(Ok(messages)) => self.get_prompt(&PromptValue::Chat(messages)),
+                        Ok(Err(e)) => {
+                            eprintln!("Error parsing template file '{}': {}", text, e);
+                            vec![]
+                        }
+                        Err(e) => {
+                            eprintln!("Error reading template file '{}': {}", text, e);
+                            vec![]
+                        }
                     }
-                    Err(e) => {
-                        eprintln!("Error reading template file '{}': {}", text, e);
-                        vec![]
+                } else {
+                    match std::fs::read_to_string(&text).map(|s| self.template_from_str(&s)) {
+                        Ok(template) => self.get_prompt(&PromptValue::Chat(template)),
+                        Err(e) => {
+                            eprintln!("Error reading template file '{}': {}", text, e);
+                            vec![]
+                        }
                     }
                 }
             }
