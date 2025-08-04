@@ -26,6 +26,7 @@ pub enum TextValue {
     Variable(VariableId),
     Thoughts(VariableId),
     WithoutThoughts(VariableId),
+    Default(VariableId, String),
     Simple(String),
     Multi(Vec<TextValue>),
     Structured(HashMap<String, TextValue>),

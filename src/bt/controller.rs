@@ -189,6 +189,11 @@ impl BarkController {
                 eprintln!("User variable not found: {:?}", id);
                 String::new()
             }),
+            TextValue::Default(id, default) => self
+                .text_variables
+                .get(id)
+                .cloned()
+                .unwrap_or_else(|| default.clone()),
             TextValue::Thoughts(id) => {
                 let text = self.text_variables.get(id).cloned().unwrap_or_else(|| {
                     eprintln!("User variable not found: {:?}", id);

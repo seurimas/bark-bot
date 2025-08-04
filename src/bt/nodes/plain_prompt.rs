@@ -1,5 +1,9 @@
+use std::sync::atomic::AtomicUsize;
+
 use crate::prelude::*;
 use tokio::task::JoinHandle;
+
+static PROMPT_IDS: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Prompt {
@@ -7,6 +11,8 @@ pub struct Prompt {
     pub prompt: PromptValue,
     #[serde(skip)]
     pub join_handle: Option<JoinHandle<(String, BehaviorTreeState, Option<i32>)>>,
+    #[serde(skip)]
+    pub prompt_id: Option<usize>,
 }
 
 impl BehaviorTree for Prompt {
@@ -20,7 +26,7 @@ impl BehaviorTree for Prompt {
         gas: &mut Option<i32>,
         mut audit: &mut Option<BehaviorTreeAudit>,
     ) -> BarkState {
-        if let Some(join_handle) = &mut self.join_handle {
+        if let (Some(id), Some(join_handle)) = (&self.prompt_id, &mut self.join_handle) {
             if let Ok(result) = try_join(join_handle) {
                 self.join_handle = None;
                 let (output, result, new_gas) = result;
@@ -31,14 +37,16 @@ impl BehaviorTree for Prompt {
                         .text_variables
                         .insert(VariableId::LastOutput, output.clone());
                 }
-                audit.data(&"Prompt", &"output", &output);
+                audit.data(&"Prompt", &format!("output-{}", id), &output);
                 return result;
             } else {
                 return BarkState::Waiting;
             }
         }
         let prompt = controller.get_prompt(&self.prompt);
-        audit.data(&"Prompt", &"prompt", &prompt);
+        let prompt_id = PROMPT_IDS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        self.prompt_id = Some(prompt_id);
+        audit.data(&"Prompt", &format!("prompt-{}", prompt_id), &prompt);
         if prompt.is_empty() {
             eprintln!("Prompt {:?} is empty", self.prompt);
             return BarkState::Failed;
@@ -54,6 +62,8 @@ impl BehaviorTree for Prompt {
 
     fn reset(self: &mut Self, _model: &Self::Model) {
         // Nothing to do
+        self.join_handle = None;
+        self.prompt_id = None;
     }
 }
 

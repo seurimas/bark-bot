@@ -200,7 +200,10 @@ pub fn try_join<T>(handle: &mut JoinHandle<T>) -> std::result::Result<T, ()> {
     if handle.is_finished() {
         match block_on(async { handle.await }) {
             Ok(result) => Ok(result),
-            Err(_) => Err(()),
+            Err(_) => {
+                eprintln!("Join handle failed");
+                Err(())
+            }
         }
     } else {
         Err(())

@@ -145,21 +145,25 @@ impl UserNodeDefinition for BarkNode {
                 ai_model: None,
                 prompt: PromptValue::Chat(messages.clone()),
                 join_handle: None,
+                prompt_id: None,
             }),
             BarkNode::ChatWith(model, messages) => Box::new(Prompt {
                 ai_model: Some(model.clone()),
                 prompt: PromptValue::Chat(messages.clone()),
                 join_handle: None,
+                prompt_id: None,
             }),
             BarkNode::Prompt(prompt) => Box::new(Prompt {
                 ai_model: None,
                 prompt: prompt.clone(),
                 join_handle: None,
+                prompt_id: None,
             }),
             BarkNode::PromptWith(model, prompt) => Box::new(Prompt {
                 ai_model: Some(model.clone()),
                 prompt: prompt.clone(),
                 join_handle: None,
+                prompt_id: None,
             }),
             BarkNode::InteractivePrompt { choices, chat } => Box::new(InteractivePrompt {
                 ai_model: None,
