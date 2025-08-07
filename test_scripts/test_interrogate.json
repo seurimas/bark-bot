@@ -36,14 +36,16 @@
                                 "User": {
                                     "ExtendPrompt": [
                                         "Accumulator",
-                                        [
-                                            {
-                                                "User": "\n"
-                                            },
-                                            {
-                                                "UserVar": "LastOutput"
-                                            }
-                                        ]
+                                        {
+                                            "Chat": [
+                                                {
+                                                    "User": "\n"
+                                                },
+                                                {
+                                                    "UserVar": "LastOutput"
+                                                }
+                                            ]
+                                        }
                                     ]
                                 }
                             }

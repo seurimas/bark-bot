@@ -255,13 +255,13 @@ impl BarkController {
         }
     }
 
-    pub fn start_prompt(&mut self, id: VariableId, messages: Vec<MessageValue>) {
-        let prompt = self.get_prompt(&PromptValue::Chat(messages));
+    pub fn start_prompt(&mut self, id: VariableId, messages: PromptValue) {
+        let prompt = self.get_prompt(&messages);
         self.prompts.insert(id, prompt);
     }
 
-    pub fn extend_prompt(&mut self, id: VariableId, messages: Vec<MessageValue>) {
-        let prompt = self.get_prompt(&PromptValue::Chat(messages));
+    pub fn extend_prompt(&mut self, id: VariableId, messages: PromptValue) {
+        let prompt = self.get_prompt(&messages);
         self.prompts
             .entry(id)
             .or_insert_with(Vec::new)

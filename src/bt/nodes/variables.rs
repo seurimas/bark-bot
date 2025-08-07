@@ -98,7 +98,7 @@ impl BehaviorTree for GetEmbedding {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct StartPrompt(pub VariableId, pub Vec<MessageValue>);
+pub struct StartPrompt(pub VariableId, pub PromptValue);
 
 impl BehaviorTree for StartPrompt {
     type Controller = BarkController;
@@ -121,7 +121,7 @@ impl BehaviorTree for StartPrompt {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ExtendPrompt(pub VariableId, pub Vec<MessageValue>);
+pub struct ExtendPrompt(pub VariableId, pub PromptValue);
 
 impl BehaviorTree for ExtendPrompt {
     type Controller = BarkController;

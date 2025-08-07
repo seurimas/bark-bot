@@ -12,6 +12,12 @@ pub enum VariableId {
     PreLoaded(String),
 }
 
+impl From<&str> for VariableId {
+    fn from(value: &str) -> Self {
+        VariableId::User(value.to_string())
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PromptValue {
     Variable(VariableId),

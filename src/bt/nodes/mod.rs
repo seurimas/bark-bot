@@ -23,8 +23,8 @@ pub enum BarkNode {
     // Simple variable operations.
     SetText(VariableId, TextValue),
     SetTemplate(VariableId, Vec<MessageValue>),
-    StartPrompt(VariableId, Vec<MessageValue>),
-    ExtendPrompt(VariableId, Vec<MessageValue>),
+    StartPrompt(VariableId, PromptValue),
+    ExtendPrompt(VariableId, PromptValue),
     GetEmbedding(TextValue, VariableId),
     // Run prompts.
     Chat(Vec<MessageValue>),
