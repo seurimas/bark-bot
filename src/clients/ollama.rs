@@ -9,7 +9,6 @@ use ollama_rs::{
 };
 use openai_api_rs::v1::chat_completion::Tool;
 use serde::{Deserialize, Serialize};
-use tokio::runtime::Handle;
 
 use crate::{
     bt::{AiModelConfig, BarkModelConfig},

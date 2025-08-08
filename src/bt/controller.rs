@@ -23,7 +23,7 @@ impl BarkController {
         }
     }
 
-    fn replace_template_variables(&self, line: &str) -> String {
+    pub fn replace_template_variables(&self, line: &str) -> String {
         let mut result = line.to_string();
         for (key, value) in &self.text_variables {
             let placeholder = format!(

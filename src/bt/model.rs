@@ -1,5 +1,4 @@
-use std::{any, collections::hash_map::Entry, path::Path, sync::Arc};
-use tokio::sync::Mutex;
+use anyhow::anyhow;
 
 use ollama_rs::{generation::embeddings::request::GenerateEmbeddingsRequest, Ollama};
 
@@ -7,7 +6,6 @@ use openai_api_rs::v1::embedding::EmbeddingResponse;
 use rusqlite::{ffi::sqlite3_auto_extension, Connection};
 use serde_json::Value;
 use sqlite_vec::sqlite3_vec_init;
-use tokio::runtime::Handle;
 use zerocopy::AsBytes;
 
 use crate::{clients::*, prelude::*};
@@ -102,7 +100,7 @@ pub struct BarkModel {
     pub tree_root: String,
     openai_clients: HashMap<String, (String, OpenAI, Option<f32>)>,
     ollama_clients: HashMap<String, (String, Ollama, Option<f32>)>,
-    mcp_services: HashMap<String, Arc<Mutex<Box<dyn McpServiceClient>>>>,
+    mcp_services: HashMap<String, RunningServiceClient>,
     tree_services: HashMap<String, BarkDef>,
     tools_map: HashMap<String, BarkTool>,
     embedding_client: EmbeddingClientModel,
@@ -297,24 +295,19 @@ impl BarkModel {
             };
             return Ok(response);
         } else if let Some(mcp_service) = self.mcp_services.get(prefix) {
-            Err(format!(
-                "Mocked tool call for {}: {}",
-                prefix, function_name
-            ))
-            // let mut mcp_service = mcp_service.lock().await;
-            // mcp_service
-            //     .call_mcp(
-            //         function_name,
-            //         tool_call
-            //             .arguments
-            //             .clone()
-            //             .and_then(|args| serde_json::from_str::<Value>(&args).ok())
-            //             .unwrap_or(Value::Object(serde_json::Map::new())),
-            //     )
-            //     .await
-            //     .unwrap_or(Err(format!("Failed to call MCP service {}", function_name)))
-            //     .map_err(|e| e.to_string())
-            //     .and_then(|response| BarkToolCallResponse::try_parse(tool_call, response))
+            mcp_service
+                .call_mcp(
+                    function_name,
+                    tool_call
+                        .arguments
+                        .clone()
+                        .and_then(|args| serde_json::from_str::<Value>(&args).ok())
+                        .unwrap_or(Value::Object(serde_json::Map::new())),
+                )
+                .await
+                .unwrap_or(Err(anyhow!("Failed to call MCP service {}", function_name)))
+                .map_err(|e| e.to_string())
+                .and_then(|response| BarkToolCallResponse::try_parse(tool_call, response))
         } else {
             Err(format!("Tool {} not found", tool_call.function_name))
         }

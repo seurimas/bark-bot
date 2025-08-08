@@ -45,7 +45,6 @@ impl<'de> Deserialize<'de> for TextValue {
         D: serde::Deserializer<'de>,
     {
         #[derive(Deserialize)]
-        #[serde(untagged)]
         pub enum TextValueHelper {
             Variable(VariableId),
             Thoughts(VariableId),
