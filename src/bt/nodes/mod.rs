@@ -37,7 +37,7 @@ pub enum BarkNode {
         chat: Vec<MessageValue>,
     },
     InteractivePromptWith {
-        ai_model: Option<String>,
+        ai_model: Option<TextValue>,
         choices: usize,
         chat: Vec<MessageValue>,
     },
@@ -80,10 +80,10 @@ pub enum BarkNode {
     PrintLine(TextValue),
     Unescape(VariableId),
     // Vector database
-    PushSimpleEmbedding(String, TextValue),
-    PushEmbeddingKeyValues(String, TextValue, Vec<(TextValue, TextValue)>),
-    PullBestScored(String, TextValue),
-    PullBestQueryMatch(String, TextValue),
+    PushSimpleEmbedding(TextValue, TextValue),
+    PushEmbeddingKeyValues(TextValue, TextValue, Vec<(TextValue, TextValue)>),
+    PullBestScored(TextValue, TextValue),
+    PullBestQueryMatch(TextValue, TextValue),
 }
 
 enum Subtree {

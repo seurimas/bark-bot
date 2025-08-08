@@ -5,7 +5,7 @@ use tokio::task::JoinHandle;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InteractivePrompt {
-    pub ai_model: Option<String>,
+    pub ai_model: Option<TextValue>,
     pub choices: usize,
     pub prompt: PromptValue,
     #[serde(skip)]
@@ -24,6 +24,7 @@ impl BehaviorTree for InteractivePrompt {
         mut audit: &mut Option<BehaviorTreeAudit>,
     ) -> BarkState {
         audit.enter(&"InteractivePrompt");
+        let ai_model = self.ai_model.as_ref().map(|v| controller.get_text(v));
         if let Some(join_handle) = &mut self.join_handle {
             if let Ok(results) = try_join(join_handle) {
                 self.join_handle = None;
@@ -47,7 +48,7 @@ impl BehaviorTree for InteractivePrompt {
                     new_prompt.push(user(&format!("{}\n{}", original_final_content, input)));
                     audit.mark(&"User extended the original prompt");
                     self.join_handle = Some(tokio::spawn(multi_prompt(
-                        self.ai_model.clone(),
+                        ai_model,
                         self.choices,
                         new_prompt,
                         model.clone(),
@@ -57,7 +58,7 @@ impl BehaviorTree for InteractivePrompt {
                 } else if input.eq_ignore_ascii_case("r") {
                     audit.mark(&"User chose to retry the prompt");
                     self.join_handle = Some(tokio::spawn(multi_prompt(
-                        self.ai_model.clone(),
+                        ai_model,
                         self.choices,
                         controller.get_prompt(&self.prompt),
                         model.clone(),
@@ -81,7 +82,7 @@ impl BehaviorTree for InteractivePrompt {
                     new_prompt.push(user(&"\nPrompt:\n"));
                     new_prompt.push(user(&input));
                     self.join_handle = Some(tokio::spawn(multi_prompt(
-                        self.ai_model.clone(),
+                        ai_model,
                         3,
                         new_prompt,
                         model.clone(),
@@ -109,7 +110,7 @@ impl BehaviorTree for InteractivePrompt {
             }
         }
         self.join_handle = Some(tokio::spawn(multi_prompt(
-            self.ai_model.clone(),
+            ai_model,
             self.choices,
             controller.get_prompt(&self.prompt),
             model.clone(),
