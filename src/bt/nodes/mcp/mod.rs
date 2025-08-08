@@ -1,8 +1,12 @@
+use std::sync::atomic::AtomicUsize;
+
 use behavior_bark::powered::BehaviorTree;
 use serde::{Deserialize, Serialize};
 use tokio::task::JoinHandle;
 
 use crate::prelude::*;
+
+static PROMPT_IDS: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Agent {
@@ -11,6 +15,8 @@ pub struct Agent {
     pub tool_filters: Vec<String>,
     #[serde(skip)]
     pub join_handle: Option<JoinHandle<(String, Vec<BarkMessage>, BarkState, Option<i32>)>>,
+    #[serde(skip)]
+    pub prompt_id: Option<usize>,
 }
 
 impl BehaviorTree for Agent {
@@ -22,17 +28,19 @@ impl BehaviorTree for Agent {
         model: &Self::Model,
         controller: &mut Self::Controller,
         gas: &mut Option<i32>,
-        mut _audit: &mut Option<BehaviorTreeAudit>,
+        mut audit: &mut Option<BehaviorTreeAudit>,
     ) -> BarkState {
-        if let Some(join_handle) = &mut self.join_handle {
-            if let Ok((output, _, result, new_gas)) = try_join(join_handle) {
+        if let (Some(id), Some(join_handle)) = (&self.prompt_id, &mut self.join_handle) {
+            if let Ok((output, chat, result, new_gas)) = try_join(join_handle) {
                 self.join_handle = None;
                 *gas = new_gas;
                 check_gas!(gas);
+                audit.data(&"Prompt", &format!("output-{}", id), &output);
                 if result == BarkState::Complete {
                     controller
                         .text_variables
-                        .insert(VariableId::LastOutput, output.clone());
+                        .insert(VariableId::LastOutput, output);
+                    controller.prompts.insert(VariableId::LastOutput, chat);
                 }
                 return result;
             } else {
@@ -40,9 +48,12 @@ impl BehaviorTree for Agent {
             }
         }
         let prompt = controller.get_prompt(&self.prompt);
+        let prompt_id = PROMPT_IDS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        self.prompt_id = Some(prompt_id);
         if prompt.is_empty() {
             return BarkState::Failed;
         }
+        audit.data(&"Prompt", &format!("prompt-{}", prompt_id), &prompt);
         let tools = model.get_tools(&self.tool_filters);
         self.join_handle = Some(tokio::spawn(powered_chat(
             self.ai_model.clone(),

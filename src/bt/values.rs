@@ -25,6 +25,7 @@ pub enum PromptValue {
     TemplateFile(TextValue),
     Quick(String),
     Chat(Vec<MessageValue>),
+    Joined(Vec<PromptValue>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

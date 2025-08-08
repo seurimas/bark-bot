@@ -25,6 +25,7 @@ pub enum BarkNode {
     SetTemplate(VariableId, Vec<MessageValue>),
     StartPrompt(VariableId, PromptValue),
     ExtendPrompt(VariableId, PromptValue),
+    ReplaceSystemPrompt(VariableId, PromptValue),
     GetEmbedding(TextValue, VariableId),
     // Run prompts.
     Chat(Vec<MessageValue>),
@@ -141,6 +142,9 @@ impl UserNodeDefinition for BarkNode {
             BarkNode::ExtendPrompt(id, messages) => {
                 Box::new(ExtendPrompt(id.clone(), messages.clone()))
             }
+            BarkNode::ReplaceSystemPrompt(id, messages) => {
+                Box::new(ReplaceSystemPrompt(id.clone(), messages.clone()))
+            }
             BarkNode::Chat(messages) => Box::new(Prompt {
                 ai_model: None,
                 prompt: PromptValue::Chat(messages.clone()),
@@ -214,6 +218,7 @@ impl UserNodeDefinition for BarkNode {
                 prompt: prompt.clone(),
                 tool_filters: vec![],
                 join_handle: None,
+                prompt_id: None,
             }),
             BarkNode::AgentWithFilters {
                 prompt,
@@ -223,6 +228,7 @@ impl UserNodeDefinition for BarkNode {
                 prompt: prompt.clone(),
                 tool_filters: tool_filters.clone(),
                 join_handle: None,
+                prompt_id: None,
             }),
             BarkNode::AgentWithFiltersAndModel {
                 prompt,
@@ -233,6 +239,7 @@ impl UserNodeDefinition for BarkNode {
                 prompt: prompt.clone(),
                 tool_filters: tool_filters.clone(),
                 join_handle: None,
+                prompt_id: None,
             }),
             BarkNode::SaveFile { path, content } => Box::new(SaveFile {
                 path: path.clone(),

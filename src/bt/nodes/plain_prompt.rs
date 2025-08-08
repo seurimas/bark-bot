@@ -32,12 +32,21 @@ impl BehaviorTree for Prompt {
                 let (output, result, new_gas) = result;
                 *gas = new_gas;
                 check_gas!(gas);
+                audit.data(&"Prompt", &format!("output-{}", id), &output);
                 if result == BarkState::Complete {
+                    let mut prompt = controller.get_prompt(&self.prompt);
+                    prompt.push(BarkMessage {
+                        role: BarkRole::Assistant,
+                        content: BarkContent::Text(output.clone()),
+                    });
+                    controller
+                        .prompts
+                        .insert(VariableId::LastOutput, prompt.clone());
+
                     controller
                         .text_variables
-                        .insert(VariableId::LastOutput, output.clone());
+                        .insert(VariableId::LastOutput, output);
                 }
-                audit.data(&"Prompt", &format!("output-{}", id), &output);
                 return result;
             } else {
                 return BarkState::Waiting;

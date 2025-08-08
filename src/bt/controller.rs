@@ -37,12 +37,13 @@ impl BarkController {
                     VariableId::PreLoaded(s) => s,
                 }
             );
-            if result.contains(&placeholder) && value.is_empty() {
-                eprintln!(
-                    "Warning: Placeholder '{}' found in template but no value provided.",
-                    placeholder
-                );
-            }
+            // This is actually probably usually fine.
+            // if result.contains(&placeholder) && value.is_empty() {
+            //     eprintln!(
+            //         "Warning: Placeholder '{}' found in template but no value provided.",
+            //         placeholder
+            //     );
+            // }
             result = result.replace(&placeholder, value);
         }
         if result.contains("{{") && result.contains("}}") {
@@ -180,6 +181,13 @@ impl BarkController {
                 }
                 chat
             }
+            PromptValue::Joined(prompts) => {
+                let mut chat = vec![];
+                for prompt in prompts {
+                    chat.extend(self.get_prompt(prompt));
+                }
+                chat
+            }
         }
     }
 
@@ -266,5 +274,16 @@ impl BarkController {
             .entry(id)
             .or_insert_with(Vec::new)
             .extend(prompt);
+    }
+
+    pub fn replace_system_prompt(&mut self, id: VariableId, messages: PromptValue) {
+        let mut prompt = self.get_prompt(&messages);
+        if let Some(existing) = self.prompts.get_mut(&id) {
+            existing.retain(|msg| msg.role != BarkRole::System);
+            prompt.extend(existing.clone());
+            self.prompts.insert(id, prompt);
+        } else {
+            self.prompts.insert(id, prompt);
+        }
     }
 }

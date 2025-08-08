@@ -144,6 +144,29 @@ impl BehaviorTree for ExtendPrompt {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct ReplaceSystemPrompt(pub VariableId, pub PromptValue);
+
+impl BehaviorTree for ReplaceSystemPrompt {
+    type Controller = BarkController;
+    type Model = BarkModel;
+
+    fn resume_with(
+        self: &mut Self,
+        _model: &Self::Model,
+        controller: &mut Self::Controller,
+        _gas: &mut Option<i32>,
+        mut _audit: &mut Option<BehaviorTreeAudit>,
+    ) -> BarkState {
+        controller.replace_system_prompt(self.0.clone(), self.1.clone());
+        BarkState::Complete
+    }
+
+    fn reset(self: &mut Self, _model: &Self::Model) {
+        // Nothing to do
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Unescape(pub VariableId);
 
 impl BehaviorTree for Unescape {
