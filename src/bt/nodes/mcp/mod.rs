@@ -10,7 +10,7 @@ static PROMPT_IDS: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Agent {
-    pub ai_model: Option<String>,
+    pub ai_model: Option<TextValue>,
     pub prompt: PromptValue,
     pub tool_filters: Vec<String>,
     #[serde(skip)]
@@ -30,11 +30,11 @@ impl BehaviorTree for Agent {
         gas: &mut Option<i32>,
         mut audit: &mut Option<BehaviorTreeAudit>,
     ) -> BarkState {
+        check_gas!(gas);
         if let (Some(id), Some(join_handle)) = (&self.prompt_id, &mut self.join_handle) {
             if let Ok((output, chat, result, new_gas)) = try_join(join_handle) {
                 self.join_handle = None;
                 *gas = new_gas;
-                check_gas!(gas);
                 audit.data(&"Prompt", &format!("output-{}", id), &output);
                 if result == BarkState::Complete {
                     controller
@@ -55,8 +55,9 @@ impl BehaviorTree for Agent {
         }
         audit.data(&"Prompt", &format!("prompt-{}", prompt_id), &prompt);
         let tools = model.get_tools(&self.tool_filters);
+        let ai_model = self.ai_model.as_ref().map(|v| controller.get_text(v));
         self.join_handle = Some(tokio::spawn(powered_chat(
-            self.ai_model.clone(),
+            ai_model,
             prompt.clone(),
             model.clone(),
             *gas,

@@ -3,7 +3,7 @@
         {
             "User": {
                 "PromptWith": [
-                    "local",
+                    "default",
                     {
                         "Quick": "What is the capital of France? Keep your answer concise, providing just the name of the city."
                     }

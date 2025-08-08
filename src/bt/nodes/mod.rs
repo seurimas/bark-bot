@@ -29,9 +29,9 @@ pub enum BarkNode {
     GetEmbedding(TextValue, VariableId),
     // Run prompts.
     Chat(Vec<MessageValue>),
-    ChatWith(String, Vec<MessageValue>),
+    ChatWith(TextValue, Vec<MessageValue>),
     Prompt(PromptValue),
-    PromptWith(String, PromptValue),
+    PromptWith(TextValue, PromptValue),
     InteractivePrompt {
         choices: usize,
         chat: Vec<MessageValue>,
@@ -50,10 +50,10 @@ pub enum BarkNode {
     AgentWithFiltersAndModel {
         prompt: PromptValue,
         tool_filters: Vec<String>,
-        ai_model: String,
+        ai_model: TextValue,
     },
     // Response checks
-    MatchResponse(Option<String>, TextMatcher, PromptValue),
+    MatchResponse(Option<TextValue>, TextMatcher, PromptValue),
     RequireInResponse(Vec<String>, PromptValue),
     RejectInResponse(Vec<String>, PromptValue),
     // Files

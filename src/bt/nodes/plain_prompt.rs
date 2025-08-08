@@ -7,7 +7,7 @@ static PROMPT_IDS: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Prompt {
-    pub ai_model: Option<String>,
+    pub ai_model: Option<TextValue>,
     pub prompt: PromptValue,
     #[serde(skip)]
     pub join_handle: Option<JoinHandle<(String, BehaviorTreeState, Option<i32>)>>,
@@ -26,12 +26,12 @@ impl BehaviorTree for Prompt {
         gas: &mut Option<i32>,
         mut audit: &mut Option<BehaviorTreeAudit>,
     ) -> BarkState {
+        check_gas!(gas);
         if let (Some(id), Some(join_handle)) = (&self.prompt_id, &mut self.join_handle) {
             if let Ok(result) = try_join(join_handle) {
                 self.join_handle = None;
                 let (output, result, new_gas) = result;
                 *gas = new_gas;
-                check_gas!(gas);
                 audit.data(&"Prompt", &format!("output-{}", id), &output);
                 if result == BarkState::Complete {
                     let mut prompt = controller.get_prompt(&self.prompt);
@@ -60,8 +60,9 @@ impl BehaviorTree for Prompt {
             eprintln!("Prompt {:?} is empty", self.prompt);
             return BarkState::Failed;
         }
+        let ai_model = self.ai_model.as_ref().map(|v| controller.get_text(v));
         self.join_handle = Some(tokio::spawn(powered_prompt(
-            self.ai_model.clone(),
+            ai_model,
             prompt.clone(),
             model.clone(),
             *gas,
@@ -78,7 +79,7 @@ impl BehaviorTree for Prompt {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MatchResponse {
-    pub ai_model: Option<String>,
+    pub ai_model: Option<TextValue>,
     pub matches: TextMatcher,
     pub prompt: PromptValue,
     #[serde(skip)]
@@ -125,8 +126,9 @@ impl BehaviorTree for MatchResponse {
             eprintln!("Prompt {:?} is empty", self.prompt);
             return BarkState::Failed;
         }
+        let ai_model = self.ai_model.as_ref().map(|v| controller.get_text(v));
         self.join_handle = Some(tokio::spawn(powered_prompt(
-            self.ai_model.clone(),
+            ai_model,
             prompt.clone(),
             model.clone(),
             *gas,
