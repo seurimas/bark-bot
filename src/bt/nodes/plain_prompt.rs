@@ -57,7 +57,7 @@ impl BehaviorTree for Prompt {
         self.prompt_id = Some(prompt_id);
         audit.data(&"Prompt", &format!("prompt-{}", prompt_id), &prompt);
         if prompt.is_empty() {
-            eprintln!("Prompt {:?} is empty", self.prompt);
+            // eprintln!("Prompt {:?} is empty", self.prompt);
             return BarkState::Failed;
         }
         let ai_model = self.ai_model.as_ref().map(|v| controller.get_text(v));
@@ -123,7 +123,7 @@ impl BehaviorTree for MatchResponse {
         let prompt = controller.get_prompt(&self.prompt);
         audit.data(&"MatchResponse", &"prompt", &prompt);
         if prompt.is_empty() {
-            eprintln!("Prompt {:?} is empty", self.prompt);
+            // eprintln!("Prompt {:?} is empty", self.prompt);
             return BarkState::Failed;
         }
         let ai_model = self.ai_model.as_ref().map(|v| controller.get_text(v));

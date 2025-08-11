@@ -22,7 +22,7 @@ impl BehaviorTree for SaveFile {
         match std::fs::write(&path, &content) {
             Ok(_) => BarkState::Complete,
             Err(err) => {
-                eprintln!("Failed to save file: {:?}", err);
+                // eprintln!("Failed to save file: {:?}", err);
                 BarkState::Failed
             }
         }
@@ -64,7 +64,7 @@ impl BehaviorTree for SaveIndexedFile {
             }
 
             Err(err) => {
-                eprintln!("Failed to save file: {:?}", err);
+                // eprintln!("Failed to save file: {:?}", err);
                 BarkState::Failed
             }
         }
@@ -101,7 +101,7 @@ impl BehaviorTree for LoadFile {
                 BarkState::Complete
             }
             Err(err) => {
-                eprintln!("Failed to load file: {:?}", err);
+                // eprintln!("Failed to load file: {:?}", err);
                 BarkState::Failed
             }
         }
@@ -142,7 +142,7 @@ impl BehaviorTree for LoadIndexedFile {
                 BarkState::Complete
             }
             Err(err) => {
-                eprintln!("Failed to load file: {:?}", err);
+                // eprintln!("Failed to load file: {:?}", err);
                 BarkState::Failed
             }
         }
@@ -173,7 +173,7 @@ impl BehaviorTree for DumpState {
         match std::fs::write(&path, serde_json::to_string(controller).unwrap()) {
             Ok(_) => BarkState::Complete,
             Err(err) => {
-                eprintln!("Failed to save state: {:?}", err);
+                // eprintln!("Failed to save state: {:?}", err);
                 BarkState::Failed
             }
         }

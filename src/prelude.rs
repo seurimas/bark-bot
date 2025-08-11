@@ -73,13 +73,13 @@ pub async fn powered_prompt(
                 *gas = *gas - usage.unwrap_or(1000) as i32;
             }
             if choices.is_empty() {
-                eprintln!("Prompt Error (empty)");
+                // eprintln!("Prompt Error (empty)");
                 return ("".to_string(), BarkState::Failed, gas);
             // } else if choices[0].value.is_empty() {
             //     eprintln!("Prompt Error (empty message)");
             //     return ("".to_string(), BarkState::Failed);
             } else if choices.len() > 1 {
-                eprintln!("Prompt Warning (multiple choices): {:?}", choices);
+                // eprintln!("Prompt Warning (multiple choices): {:?}", choices);
             }
             let response = choices.pop().unwrap().value;
             if response.starts_with("<|start_header_id|>assistant<|end_header_id|>\n") {
@@ -94,11 +94,11 @@ pub async fn powered_prompt(
             if let Some(gas) = &mut gas {
                 *gas = *gas - usage.unwrap_or(1000) as i32;
             }
-            eprintln!("Prompt Error (tool calls): {:?}", calls);
+            // eprintln!("Prompt Error (tool calls): {:?}", calls);
             ("".to_string(), BarkState::Failed, gas)
         }
         Err(e) => {
-            eprintln!("Prompt Error: {:?}", e);
+            // eprintln!("Prompt Error: {:?}", e);
             ("".to_string(), BarkState::Failed, gas)
         }
     }
@@ -126,13 +126,13 @@ pub async fn powered_chat(
                     *gas = *gas - usage.unwrap_or(1000) as i32;
                 }
                 if choices.is_empty() {
-                    eprintln!("Prompt Error (empty)");
+                    // eprintln!("Prompt Error (empty)");
                     return ("".to_string(), prompt, BarkState::Failed, gas);
                 // } else if choices[0].value.is_empty() {
                 //     eprintln!("Prompt Error (empty message)");
                 //     return ("".to_string(), prompt, BarkState::Failed);
                 } else if choices.len() > 1 {
-                    eprintln!("Prompt Warning (multiple choices): {:?}", choices);
+                    // eprintln!("Prompt Warning (multiple choices): {:?}", choices);
                 }
                 let response = choices.pop().unwrap();
                 let mut messages = prompt.clone();
@@ -163,7 +163,7 @@ pub async fn powered_chat(
                                     },
                                 });
                             } else {
-                                eprintln!("Tool call error: {:?}", id);
+                                // eprintln!("Tool call error: {:?}", id);
                                 messages.push(BarkMessage {
                                     role: BarkRole::Tool,
                                     content: BarkContent::ToolResponse {
@@ -175,7 +175,7 @@ pub async fn powered_chat(
                             }
                         }
                         Err(e) => {
-                            eprintln!("Tool call error: {:?}", e);
+                            // eprintln!("Tool call error: {:?}", e);
                             messages.push(BarkMessage {
                                 role: BarkRole::Tool,
                                 content: BarkContent::Text(format!("Tool call error: {:?}", e)),
@@ -187,7 +187,7 @@ pub async fn powered_chat(
                 prompt = messages;
             }
             Err(e) => {
-                eprintln!("Prompt Error: {:?}", e);
+                // eprintln!("Prompt Error: {:?}", e);
                 return ("".to_string(), prompt, BarkState::Failed, gas);
             }
         }

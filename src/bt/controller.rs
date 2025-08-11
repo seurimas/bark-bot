@@ -47,10 +47,10 @@ impl BarkController {
             result = result.replace(&placeholder, value);
         }
         if result.contains("{{") && result.contains("}}") {
-            eprintln!(
-                "Warning: Unresolved template variable: {}",
-                result[result.find("{{").unwrap()..result.find("}}").unwrap() + 2].to_string()
-            );
+            // eprintln!(
+            //     "Warning: Unresolved template variable: {}",
+            //     result[result.find("{{").unwrap()..result.find("}}").unwrap() + 2].to_string()
+            // );
         }
         result
     }
@@ -67,7 +67,7 @@ impl BarkController {
                 } else if line.starts_with("assistant:") {
                     MessageValue::Assistant(line[10..].trim_start().to_string())
                 } else {
-                    eprintln!("Unknown message type in template: {}", line);
+                    // eprintln!("Unknown message type in template: {}", line);
                     MessageValue::User(line.trim_start().to_string())
                 }
             })
@@ -107,11 +107,11 @@ impl BarkController {
                     {
                         Ok(Ok(messages)) => self.get_prompt(&PromptValue::Chat(messages)),
                         Ok(Err(e)) => {
-                            eprintln!("Error parsing template file '{}': {}", text, e);
+                            // eprintln!("Error parsing template file '{}': {}", text, e);
                             vec![]
                         }
                         Err(e) => {
-                            eprintln!("Error reading template file '{}': {}", text, e);
+                            // eprintln!("Error reading template file '{}': {}", text, e);
                             vec![]
                         }
                     }
@@ -119,7 +119,7 @@ impl BarkController {
                     match std::fs::read_to_string(&text).map(|s| self.template_from_str(&s)) {
                         Ok(template) => self.get_prompt(&PromptValue::Chat(template)),
                         Err(e) => {
-                            eprintln!("Error reading template file '{}': {}", text, e);
+                            // eprintln!("Error reading template file '{}': {}", text, e);
                             vec![]
                         }
                     }
@@ -129,7 +129,7 @@ impl BarkController {
                 if let Some(template) = self.templates.get(var) {
                     self.get_prompt(&PromptValue::Chat(template.clone()))
                 } else {
-                    eprintln!("Template not found: {:?}", var);
+                    // eprintln!("Template not found: {:?}", var);
                     vec![]
                 }
             }
@@ -142,19 +142,19 @@ impl BarkController {
                         MessageValue::Assistant(s) => chat.push(assistant(s)),
                         MessageValue::UserVar(id) => chat.push(user(
                             &self.text_variables.get(id).cloned().unwrap_or_else(|| {
-                                eprintln!("User variable not found: {:?}", id);
+                                // eprintln!("User variable not found: {:?}", id);
                                 String::new()
                             }),
                         )),
                         MessageValue::SystemVar(id) => chat.push(system(
                             &self.text_variables.get(id).cloned().unwrap_or_else(|| {
-                                eprintln!("User variable not found: {:?}", id);
+                                // eprintln!("User variable not found: {:?}", id);
                                 String::new()
                             }),
                         )),
                         MessageValue::AssistantVar(id) => chat.push(assistant(
                             &self.text_variables.get(id).cloned().unwrap_or_else(|| {
-                                eprintln!("User variable not found: {:?}", id);
+                                // eprintln!("User variable not found: {:?}", id);
                                 String::new()
                             }),
                         )),
@@ -174,7 +174,7 @@ impl BarkController {
                                     self.get_prompt(&PromptValue::Chat(template.clone()));
                                 chat.append(&mut sub_prompt);
                             } else {
-                                eprintln!("Template not found: {:?}", id);
+                                // eprintln!("Template not found: {:?}", id);
                             }
                         }
                     }
@@ -194,7 +194,7 @@ impl BarkController {
     pub fn get_text(&self, text: &TextValue) -> String {
         match text {
             TextValue::Variable(id) => self.text_variables.get(id).cloned().unwrap_or_else(|| {
-                eprintln!("User variable not found: {:?}", id);
+                // eprintln!("User variable not found: {:?}", id);
                 String::new()
             }),
             TextValue::Default(id, default) => self
@@ -204,7 +204,7 @@ impl BarkController {
                 .unwrap_or_else(|| default.clone()),
             TextValue::Thoughts(id) => {
                 let text = self.text_variables.get(id).cloned().unwrap_or_else(|| {
-                    eprintln!("User variable not found: {:?}", id);
+                    // eprintln!("User variable not found: {:?}", id);
                     String::new()
                 });
                 if text.contains("<think>") && text.contains("</think>") {
@@ -217,7 +217,7 @@ impl BarkController {
             }
             TextValue::WithoutThoughts(id) => {
                 let text = self.text_variables.get(id).cloned().unwrap_or_else(|| {
-                    eprintln!("User variable not found: {:?}", id);
+                    // eprintln!("User variable not found: {:?}", id);
                     String::new()
                 });
                 if text.contains("<think>") && text.contains("</think>") {

@@ -12,7 +12,7 @@ use openai_api_rs::v1::{
 use serde_json::Value;
 use tokio::sync::Mutex;
 
-use crate::bt::{AiModelConfig, BarkModelConfig};
+use crate::bt::{AiModelConfig, BarkModelConfig, McpAndTreeConfig};
 
 use super::{BarkChat, BarkResponse, BarkRole, BarkTool, BarkToolCall};
 
@@ -74,9 +74,7 @@ pub fn openai_get_from_env() -> Option<BarkModelConfig> {
         Some(BarkModelConfig {
             openai_models: models,
             ollama_models: HashMap::new(),
-            tree_services: HashMap::new(),
-            mcp_services: HashMap::new(),
-            mcp_sse_hosts: HashMap::new(),
+            tools: McpAndTreeConfig::default(),
             embedding_model,
         })
     } else {
@@ -108,7 +106,7 @@ pub async fn openai_get_bark_response(
 impl From<ChatCompletionResponse> for BarkResponse {
     fn from(mut response: ChatCompletionResponse) -> Self {
         let Some(choice) = response.choices.pop() else {
-            println!("Empty response: {:?}", response);
+            // println!("Empty response: {:?}", response);
             return BarkResponse::Chat {
                 choices: vec![],
                 usage: None,
@@ -131,7 +129,7 @@ impl From<ChatCompletionResponse> for BarkResponse {
                 usage: Some(response.usage.total_tokens as u32),
             };
         } else {
-            println!("Empty response: {:?}", response);
+            // println!("Empty response: {:?}", response);
             return BarkResponse::Chat {
                 choices: vec![],
                 usage: None,
@@ -419,7 +417,7 @@ mod tests {
             temperature: None,
         };
         let chat_request: ChatCompletionRequest = chat.into();
-        println!("Chat request: {:?}", chat_request);
+        // println!("Chat request: {:?}", chat_request);
         assert_eq!(chat_request.messages.len(), 3);
     }
 }

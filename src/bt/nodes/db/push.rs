@@ -33,13 +33,13 @@ impl BehaviorTree for PushSimpleEmbedding {
                         return match model.push_embedding(db.clone(), text, embedding, None) {
                             Ok(_) => BarkState::Complete,
                             Err(err) => {
-                                eprintln!("Failed to push simple embedding: {:?}", err);
+                                // eprintln!("Failed to push simple embedding: {:?}", err);
                                 BarkState::Failed
                             }
                         };
                     }
                     Err(err) => {
-                        eprintln!("Failed to get embedding: {:?}", err);
+                        // eprintln!("Failed to get embedding: {:?}", err);
                         return BarkState::Failed;
                     }
                 }
@@ -99,7 +99,7 @@ impl BehaviorTree for PushValuedEmbedding {
                     }
 
                     Err(err) => {
-                        eprintln!("Failed to get embedding: {:?}", err);
+                        // eprintln!("Failed to get embedding: {:?}", err);
                         return BarkState::Failed;
                     }
                 }

@@ -37,7 +37,7 @@ impl BehaviorTree for PullBestScored {
                             audit.exit(&"PullBestScored", BarkState::Complete);
                             return BarkState::Complete;
                         } else {
-                            eprintln!("Failed to pull best match");
+                            // eprintln!("Failed to pull best match");
                             audit.mark(&format!("Failed to pull best match for: {}", db));
                             audit.exit(&"PullBestScored", BarkState::Failed);
                             return BarkState::Failed;

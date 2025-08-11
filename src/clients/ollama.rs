@@ -11,7 +11,7 @@ use openai_api_rs::v1::chat_completion::Tool;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    bt::{AiModelConfig, BarkModelConfig},
+    bt::{AiModelConfig, BarkModelConfig, McpAndTree, McpAndTreeConfig},
     clients::BarkToolCall,
 };
 
@@ -39,9 +39,7 @@ pub fn ollama_get_from_env() -> Option<BarkModelConfig> {
         Some(BarkModelConfig {
             openai_models: HashMap::new(),
             ollama_models: models,
-            tree_services: HashMap::new(),
-            mcp_services: HashMap::new(),
-            mcp_sse_hosts: HashMap::new(),
+            tools: McpAndTreeConfig::default(),
             embedding_model,
         })
     } else {
