@@ -12,7 +12,10 @@ use openai_api_rs::v1::{
 use serde_json::Value;
 use tokio::sync::Mutex;
 
-use crate::bt::{AiModelConfig, BarkModelConfig, McpAndTreeConfig};
+use crate::{
+    bt::{AiModelConfig, BarkModelConfig},
+    clients::McpAndTreeConfig,
+};
 
 use super::{BarkChat, BarkResponse, BarkRole, BarkTool, BarkToolCall};
 

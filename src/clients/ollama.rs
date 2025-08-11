@@ -11,8 +11,8 @@ use openai_api_rs::v1::chat_completion::Tool;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    bt::{AiModelConfig, BarkModelConfig, McpAndTree, McpAndTreeConfig},
-    clients::BarkToolCall,
+    bt::{AiModelConfig, BarkModelConfig},
+    clients::{BarkToolCall, McpAndTreeConfig},
 };
 
 use super::{BarkChat, BarkResponse, BarkRole, BarkTool};
