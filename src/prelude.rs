@@ -43,12 +43,12 @@ pub fn score(embed_a: &[f32], embed_b: &[f32]) -> f32 {
     sum
 }
 
-pub fn read_tree(root: impl AsRef<Path>, tree_path: &str) -> BarkDef {
+pub fn read_tree<TC: ToolCaller>(root: impl AsRef<Path>, tree_path: &str) -> BarkDef<TC> {
     let root = root.as_ref();
     let path = std::path::Path::join(root, tree_path);
     let tree = std::fs::read_to_string(&path)
         .expect(format!("Failed to read tree file: {:?}", path).as_str());
-    let tree: crate::bt::BarkDef = if tree_path.ends_with("json") {
+    let tree: crate::bt::BarkDef<TC> = if tree_path.ends_with("json") {
         serde_json::from_str(&tree).expect("Failed to parse JSON tree file")
     } else if tree_path.ends_with("ron") {
         ron::from_str(&tree).expect("Failed to parse RON tree file")
@@ -58,10 +58,10 @@ pub fn read_tree(root: impl AsRef<Path>, tree_path: &str) -> BarkDef {
     tree
 }
 
-pub async fn powered_prompt(
+pub async fn powered_prompt<TC: ToolCaller>(
     preferred_model: Option<String>,
     prompt: Vec<BarkMessage>,
-    model: BarkModel,
+    model: BarkModel<TC>,
     mut gas: Option<i32>,
 ) -> (String, BarkState, Option<i32>) {
     match model
@@ -104,10 +104,10 @@ pub async fn powered_prompt(
     }
 }
 
-pub async fn powered_chat(
+pub async fn powered_chat<TC: ToolCaller>(
     preferred_model: Option<String>,
     mut prompt: Vec<BarkMessage>,
-    model: BarkModel,
+    model: BarkModel<TC>,
     mut gas: Option<i32>,
     tools: Vec<BarkTool>,
 ) -> (String, Vec<BarkMessage>, BarkState, Option<i32>) {

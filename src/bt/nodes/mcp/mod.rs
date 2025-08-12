@@ -9,7 +9,7 @@ use crate::prelude::*;
 static PROMPT_IDS: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Agent {
+pub struct Agent<TC: ToolCaller> {
     pub ai_model: Option<TextValue>,
     pub prompt: PromptValue,
     pub tool_filters: Vec<String>,
@@ -17,11 +17,13 @@ pub struct Agent {
     pub join_handle: Option<JoinHandle<(String, Vec<BarkMessage>, BarkState, Option<i32>)>>,
     #[serde(skip)]
     pub prompt_id: Option<usize>,
+    #[serde(skip)]
+    pub _phantom: std::marker::PhantomData<TC>,
 }
 
-impl BehaviorTree for Agent {
+impl<TC: ToolCaller> BehaviorTree for Agent<TC> {
     type Controller = BarkController;
-    type Model = BarkModel;
+    type Model = BarkModel<TC>;
 
     fn resume_with(
         self: &mut Self,

@@ -1,14 +1,16 @@
 use crate::prelude::*;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct SaveFile {
+pub struct SaveFile<TC: ToolCaller> {
     pub path: TextValue,
     pub content: TextValue,
+    #[serde(skip)]
+    pub _phantom: std::marker::PhantomData<TC>,
 }
 
-impl BehaviorTree for SaveFile {
+impl<TC: ToolCaller> BehaviorTree for SaveFile<TC> {
     type Controller = BarkController;
-    type Model = BarkModel;
+    type Model = BarkModel<TC>;
 
     fn resume_with(
         self: &mut Self,
@@ -34,15 +36,17 @@ impl BehaviorTree for SaveFile {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct SaveIndexedFile {
+pub struct SaveIndexedFile<TC: ToolCaller> {
     pub path: TextValue,
     pub content: TextValue,
     pub index: usize,
+    #[serde(skip)]
+    pub _phantom: std::marker::PhantomData<TC>,
 }
 
-impl BehaviorTree for SaveIndexedFile {
+impl<TC: ToolCaller> BehaviorTree for SaveIndexedFile<TC> {
     type Controller = BarkController;
-    type Model = BarkModel;
+    type Model = BarkModel<TC>;
 
     fn resume_with(
         self: &mut Self,
@@ -63,7 +67,7 @@ impl BehaviorTree for SaveIndexedFile {
                 BarkState::Complete
             }
 
-            Err(err) => {
+            Err(_err) => {
                 // eprintln!("Failed to save file: {:?}", err);
                 BarkState::Failed
             }
@@ -76,14 +80,16 @@ impl BehaviorTree for SaveIndexedFile {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct LoadFile {
+pub struct LoadFile<TC: ToolCaller> {
     pub path: TextValue,
     pub content: VariableId,
+    #[serde(skip)]
+    pub _phantom: std::marker::PhantomData<TC>,
 }
 
-impl BehaviorTree for LoadFile {
+impl<TC: ToolCaller> BehaviorTree for LoadFile<TC> {
     type Controller = BarkController;
-    type Model = BarkModel;
+    type Model = BarkModel<TC>;
 
     fn resume_with(
         self: &mut Self,
@@ -100,7 +106,7 @@ impl BehaviorTree for LoadFile {
                     .insert(self.content.clone(), content);
                 BarkState::Complete
             }
-            Err(err) => {
+            Err(_err) => {
                 // eprintln!("Failed to load file: {:?}", err);
                 BarkState::Failed
             }
@@ -113,15 +119,17 @@ impl BehaviorTree for LoadFile {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct LoadIndexedFile {
+pub struct LoadIndexedFile<TC: ToolCaller> {
     pub path: TextValue,
     pub content: VariableId,
     pub index: usize,
+    #[serde(skip)]
+    pub _phantom: std::marker::PhantomData<TC>,
 }
 
-impl BehaviorTree for LoadIndexedFile {
+impl<TC: ToolCaller> BehaviorTree for LoadIndexedFile<TC> {
     type Controller = BarkController;
-    type Model = BarkModel;
+    type Model = BarkModel<TC>;
 
     fn resume_with(
         self: &mut Self,
@@ -141,7 +149,7 @@ impl BehaviorTree for LoadIndexedFile {
                 self.index += 1; // Increment the index for the next load
                 BarkState::Complete
             }
-            Err(err) => {
+            Err(_err) => {
                 // eprintln!("Failed to load file: {:?}", err);
                 BarkState::Failed
             }
@@ -154,13 +162,15 @@ impl BehaviorTree for LoadIndexedFile {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct DumpState {
+pub struct DumpState<TC: ToolCaller> {
     pub path: TextValue,
+    #[serde(skip)]
+    pub _phantom: std::marker::PhantomData<TC>,
 }
 
-impl BehaviorTree for DumpState {
+impl<TC: ToolCaller> BehaviorTree for DumpState<TC> {
     type Controller = BarkController;
-    type Model = BarkModel;
+    type Model = BarkModel<TC>;
 
     fn resume_with(
         self: &mut Self,
@@ -172,7 +182,7 @@ impl BehaviorTree for DumpState {
         let path = controller.get_text(&self.path);
         match std::fs::write(&path, serde_json::to_string(controller).unwrap()) {
             Ok(_) => BarkState::Complete,
-            Err(err) => {
+            Err(_err) => {
                 // eprintln!("Failed to save state: {:?}", err);
                 BarkState::Failed
             }

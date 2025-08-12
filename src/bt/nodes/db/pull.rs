@@ -3,16 +3,18 @@ use tokio::task::JoinHandle;
 use crate::prelude::*;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct PullBestScored {
+pub struct PullBestScored<TC: ToolCaller> {
     pub db: TextValue,
     pub text: TextValue,
     #[serde(skip)]
     pub join_handle: Option<JoinHandle<Result<(Vec<f32>, Option<i32>), String>>>,
+    #[serde(skip)]
+    pub _phantom: std::marker::PhantomData<TC>,
 }
 
-impl BehaviorTree for PullBestScored {
+impl<TC: ToolCaller> BehaviorTree for PullBestScored<TC> {
     type Controller = BarkController;
-    type Model = BarkModel;
+    type Model = BarkModel<TC>;
 
     fn resume_with(
         self: &mut Self,

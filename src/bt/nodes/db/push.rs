@@ -3,16 +3,18 @@ use tokio::task::JoinHandle;
 use crate::prelude::*;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct PushSimpleEmbedding {
+pub struct PushSimpleEmbedding<TC: ToolCaller> {
     pub db: TextValue,
     pub text: TextValue,
     #[serde(skip)]
     pub join_handle: Option<JoinHandle<Result<(Vec<f32>, Option<i32>), String>>>,
+    #[serde(skip)]
+    pub _phantom: std::marker::PhantomData<TC>,
 }
 
-impl BehaviorTree for PushSimpleEmbedding {
+impl<TC: ToolCaller> BehaviorTree for PushSimpleEmbedding<TC> {
     type Controller = BarkController;
-    type Model = BarkModel;
+    type Model = BarkModel<TC>;
 
     fn resume_with(
         self: &mut Self,
@@ -59,17 +61,19 @@ impl BehaviorTree for PushSimpleEmbedding {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct PushValuedEmbedding {
+pub struct PushValuedEmbedding<TC: ToolCaller> {
     pub db: TextValue,
     pub text: TextValue,
     pub kvs: Vec<(TextValue, TextValue)>,
     #[serde(skip)]
     pub join_handle: Option<JoinHandle<Result<(Vec<f32>, Option<i32>), String>>>,
+    #[serde(skip)]
+    pub _phantom: std::marker::PhantomData<TC>,
 }
 
-impl BehaviorTree for PushValuedEmbedding {
+impl<TC: ToolCaller> BehaviorTree for PushValuedEmbedding<TC> {
     type Controller = BarkController;
-    type Model = BarkModel;
+    type Model = BarkModel<TC>;
 
     fn resume_with(
         self: &mut Self,

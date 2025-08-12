@@ -1,11 +1,15 @@
 use crate::prelude::*;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ReadStdio(pub bool, pub VariableId);
+pub struct ReadStdio<TC: ToolCaller>(
+    pub bool,
+    pub VariableId,
+    #[serde(skip)] pub std::marker::PhantomData<TC>,
+);
 
-impl BehaviorTree for ReadStdio {
+impl<TC: ToolCaller> BehaviorTree for ReadStdio<TC> {
     type Controller = BarkController;
-    type Model = BarkModel;
+    type Model = BarkModel<TC>;
 
     fn resume_with(
         self: &mut Self,
@@ -25,11 +29,14 @@ impl BehaviorTree for ReadStdio {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct PrintLine(pub TextValue);
+pub struct PrintLine<TC: ToolCaller>(
+    pub TextValue,
+    #[serde(skip)] pub std::marker::PhantomData<TC>,
+);
 
-impl BehaviorTree for PrintLine {
+impl<TC: ToolCaller> BehaviorTree for PrintLine<TC> {
     type Controller = BarkController;
-    type Model = BarkModel;
+    type Model = BarkModel<TC>;
 
     fn resume_with(
         self: &mut Self,
@@ -48,11 +55,14 @@ impl BehaviorTree for PrintLine {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct AskForInput(pub TextValue);
+pub struct AskForInput<TC: ToolCaller>(
+    pub TextValue,
+    #[serde(skip)] pub std::marker::PhantomData<TC>,
+);
 
-impl BehaviorTree for AskForInput {
+impl<TC: ToolCaller> BehaviorTree for AskForInput<TC> {
     type Controller = BarkController;
-    type Model = BarkModel;
+    type Model = BarkModel<TC>;
 
     fn resume_with(
         self: &mut Self,

@@ -4,17 +4,19 @@ use crate::prelude::*;
 use tokio::task::JoinHandle;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct InteractivePrompt {
+pub struct InteractivePrompt<TC: ToolCaller> {
     pub ai_model: Option<TextValue>,
     pub choices: usize,
     pub prompt: PromptValue,
     #[serde(skip)]
     pub join_handle: Option<JoinHandle<Vec<String>>>,
+    #[serde(skip)]
+    pub _phantom: std::marker::PhantomData<TC>,
 }
 
-impl BehaviorTree for InteractivePrompt {
+impl<TC: ToolCaller> BehaviorTree for InteractivePrompt<TC> {
     type Controller = BarkController;
-    type Model = BarkModel;
+    type Model = BarkModel<TC>;
 
     fn resume_with(
         self: &mut Self,
@@ -124,11 +126,11 @@ impl BehaviorTree for InteractivePrompt {
     }
 }
 
-async fn multi_prompt(
+async fn multi_prompt<TC: ToolCaller>(
     ai_model: Option<String>,
     count: usize,
     prompt: Vec<BarkMessage>,
-    model: BarkModel,
+    model: BarkModel<TC>,
     mut gas: Option<i32>,
 ) -> Vec<String> {
     let mut results = vec![];

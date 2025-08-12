@@ -1,18 +1,20 @@
 use crate::prelude::*;
 
-pub struct Repl {
+pub struct Repl<TC: ToolCaller> {
     prompt: Option<TextValue>,
     text_values: Vec<TextValue>,
     best_index: Option<usize>,
-    nodes: Vec<Box<dyn BehaviorTree<Model = BarkModel, Controller = BarkController> + Send + Sync>>,
+    nodes: Vec<
+        Box<dyn BehaviorTree<Model = BarkModel<TC>, Controller = BarkController> + Send + Sync>,
+    >,
 }
 
-impl Repl {
+impl<TC: ToolCaller> Repl<TC> {
     pub fn new(
         prompt: Option<TextValue>,
         text_values: Vec<TextValue>,
         nodes: Vec<
-            Box<dyn BehaviorTree<Model = BarkModel, Controller = BarkController> + Send + Sync>,
+            Box<dyn BehaviorTree<Model = BarkModel<TC>, Controller = BarkController> + Send + Sync>,
         >,
     ) -> Self {
         if nodes.len() != text_values.len() {
@@ -27,9 +29,9 @@ impl Repl {
     }
 }
 
-impl BehaviorTree for Repl {
+impl<TC: ToolCaller> BehaviorTree for Repl<TC> {
     type Controller = BarkController;
-    type Model = BarkModel;
+    type Model = BarkModel<TC>;
 
     fn resume_with(
         self: &mut Self,

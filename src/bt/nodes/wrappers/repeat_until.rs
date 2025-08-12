@@ -1,18 +1,21 @@
 use crate::prelude::*;
 
-pub struct RepeatUntil {
+pub struct RepeatUntil<TC: ToolCaller> {
     pub in_condition: bool,
     pub condition:
-        Box<dyn BehaviorTree<Model = BarkModel, Controller = BarkController> + Send + Sync>,
-    pub action: Box<dyn BehaviorTree<Model = BarkModel, Controller = BarkController> + Send + Sync>,
+        Box<dyn BehaviorTree<Model = BarkModel<TC>, Controller = BarkController> + Send + Sync>,
+    pub action:
+        Box<dyn BehaviorTree<Model = BarkModel<TC>, Controller = BarkController> + Send + Sync>,
 }
 
-impl RepeatUntil {
+impl<TC: ToolCaller> RepeatUntil<TC> {
     pub fn new(
         condition: Box<
-            dyn BehaviorTree<Model = BarkModel, Controller = BarkController> + Send + Sync,
+            dyn BehaviorTree<Model = BarkModel<TC>, Controller = BarkController> + Send + Sync,
         >,
-        action: Box<dyn BehaviorTree<Model = BarkModel, Controller = BarkController> + Send + Sync>,
+        action: Box<
+            dyn BehaviorTree<Model = BarkModel<TC>, Controller = BarkController> + Send + Sync,
+        >,
     ) -> Self {
         Self {
             in_condition: false,
@@ -22,9 +25,9 @@ impl RepeatUntil {
     }
 }
 
-impl BehaviorTree for RepeatUntil {
+impl<TC: ToolCaller> BehaviorTree for RepeatUntil<TC> {
     type Controller = BarkController;
-    type Model = BarkModel;
+    type Model = BarkModel<TC>;
 
     fn resume_with(
         self: &mut Self,

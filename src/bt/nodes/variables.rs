@@ -3,11 +3,15 @@ use tokio::task::JoinHandle;
 use crate::prelude::*;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct SetText(pub VariableId, pub TextValue);
+pub struct SetText<TC: ToolCaller>(
+    pub VariableId,
+    pub TextValue,
+    #[serde(skip)] pub std::marker::PhantomData<TC>,
+);
 
-impl BehaviorTree for SetText {
+impl<TC: ToolCaller> BehaviorTree for SetText<TC> {
     type Controller = BarkController;
-    type Model = BarkModel;
+    type Model = BarkModel<TC>;
 
     fn resume_with(
         self: &mut Self,
@@ -27,11 +31,15 @@ impl BehaviorTree for SetText {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct SetTemplate(pub VariableId, pub Vec<MessageValue>);
+pub struct SetTemplate<TC: ToolCaller>(
+    pub VariableId,
+    pub Vec<MessageValue>,
+    #[serde(skip)] pub std::marker::PhantomData<TC>,
+);
 
-impl BehaviorTree for SetTemplate {
+impl<TC: ToolCaller> BehaviorTree for SetTemplate<TC> {
     type Controller = BarkController;
-    type Model = BarkModel;
+    type Model = BarkModel<TC>;
 
     fn resume_with(
         self: &mut Self,
@@ -50,16 +58,18 @@ impl BehaviorTree for SetTemplate {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct GetEmbedding {
+pub struct GetEmbedding<TC: ToolCaller> {
     pub text: TextValue,
     pub variable: VariableId,
     #[serde(skip)]
     pub join_handle: Option<JoinHandle<Result<(Vec<f32>, Option<i32>), String>>>,
+    #[serde(skip)]
+    pub _phantom: std::marker::PhantomData<TC>,
 }
 
-impl BehaviorTree for GetEmbedding {
+impl<TC: ToolCaller> BehaviorTree for GetEmbedding<TC> {
     type Controller = BarkController;
-    type Model = BarkModel;
+    type Model = BarkModel<TC>;
 
     fn resume_with(
         self: &mut Self,
@@ -98,11 +108,15 @@ impl BehaviorTree for GetEmbedding {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct StartPrompt(pub VariableId, pub PromptValue);
+pub struct StartPrompt<TC: ToolCaller>(
+    pub VariableId,
+    pub PromptValue,
+    #[serde(skip)] pub std::marker::PhantomData<TC>,
+);
 
-impl BehaviorTree for StartPrompt {
+impl<TC: ToolCaller> BehaviorTree for StartPrompt<TC> {
     type Controller = BarkController;
-    type Model = BarkModel;
+    type Model = BarkModel<TC>;
 
     fn resume_with(
         self: &mut Self,
@@ -121,11 +135,15 @@ impl BehaviorTree for StartPrompt {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ExtendPrompt(pub VariableId, pub PromptValue);
+pub struct ExtendPrompt<TC: ToolCaller>(
+    pub VariableId,
+    pub PromptValue,
+    #[serde(skip)] pub std::marker::PhantomData<TC>,
+);
 
-impl BehaviorTree for ExtendPrompt {
+impl<TC: ToolCaller> BehaviorTree for ExtendPrompt<TC> {
     type Controller = BarkController;
-    type Model = BarkModel;
+    type Model = BarkModel<TC>;
 
     fn resume_with(
         self: &mut Self,
@@ -144,11 +162,15 @@ impl BehaviorTree for ExtendPrompt {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ReplaceSystemPrompt(pub VariableId, pub PromptValue);
+pub struct ReplaceSystemPrompt<TC: ToolCaller>(
+    pub VariableId,
+    pub PromptValue,
+    #[serde(skip)] pub std::marker::PhantomData<TC>,
+);
 
-impl BehaviorTree for ReplaceSystemPrompt {
+impl<TC: ToolCaller> BehaviorTree for ReplaceSystemPrompt<TC> {
     type Controller = BarkController;
-    type Model = BarkModel;
+    type Model = BarkModel<TC>;
 
     fn resume_with(
         self: &mut Self,
@@ -167,11 +189,14 @@ impl BehaviorTree for ReplaceSystemPrompt {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Unescape(pub VariableId);
+pub struct Unescape<TC: ToolCaller>(
+    pub VariableId,
+    #[serde(skip)] pub std::marker::PhantomData<TC>,
+);
 
-impl BehaviorTree for Unescape {
+impl<TC: ToolCaller> BehaviorTree for Unescape<TC> {
     type Controller = BarkController;
-    type Model = BarkModel;
+    type Model = BarkModel<TC>;
 
     fn resume_with(
         self: &mut Self,

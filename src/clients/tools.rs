@@ -34,8 +34,8 @@ pub struct TreeServiceConfig {
     pub parameters: Value,
 }
 
-pub trait ToolCaller: Clone {
-    type Config: std::fmt::Debug + Clone + serde::de::DeserializeOwned + serde::Serialize;
+pub trait ToolCaller: Clone + Send + Sync + 'static {
+    type Config: std::fmt::Debug + Clone + serde::de::DeserializeOwned + serde::Serialize + Send;
 
     fn from_config(config: &Self::Config) -> impl std::future::Future<Output = Self> + Send;
 
@@ -56,14 +56,14 @@ pub struct McpAndTreeConfig {
     pub mcp_services: HashMap<String, McpServiceConfig>,
     #[serde(default)]
     pub mcp_sse_hosts: HashMap<String, String>,
-    #[serde(default)]
-    pub tree_services: HashMap<String, TreeServiceConfig>,
+    // #[serde(default)]
+    // pub tree_services: HashMap<String, TreeServiceConfig>,
 }
 
 #[derive(Clone)]
 pub struct McpAndTree {
     mcp_services: HashMap<String, RunningServiceClient>,
-    tree_services: HashMap<String, BarkDef>,
+    // tree_services: HashMap<String, BarkDef>,
     tools_map: HashMap<String, BarkTool>,
 }
 
@@ -81,7 +81,7 @@ impl ToolCaller for McpAndTree {
                 (name.clone(), filters)
             })
             .collect::<HashMap<String, Vec<String>>>();
-        let mut tools_map = initialize_mcp_tool_map(&mcp_services, &service_filters).await;
+        let tools_map = initialize_mcp_tool_map(&mcp_services, &service_filters).await;
 
         // let tree_services = config
         //     .tree_services
@@ -104,7 +104,7 @@ impl ToolCaller for McpAndTree {
         Self {
             mcp_services,
             // tree_services,
-            tree_services: HashMap::new(), // Disable tree services for now
+            // tree_services: HashMap::new(), // Disable tree services for now
             tools_map,
         }
     }

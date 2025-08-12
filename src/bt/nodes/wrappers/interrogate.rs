@@ -1,11 +1,11 @@
 use crate::prelude::*;
 
-pub struct Interrogate {
+pub struct Interrogate<TC: ToolCaller> {
     state: InterrogateState,
     current: String,
     remaining: String,
     text_value: TextValue,
-    wrapped: BarkFunction,
+    wrapped: BarkFunction<TC>,
 }
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
@@ -15,8 +15,8 @@ enum InterrogateState {
     NotWaited,
 }
 
-impl Interrogate {
-    pub fn new(text_value: TextValue, mut wrapped: Vec<BarkFunction>) -> Self {
+impl<TC: ToolCaller> Interrogate<TC> {
+    pub fn new(text_value: TextValue, mut wrapped: Vec<BarkFunction<TC>>) -> Self {
         Self {
             state: InterrogateState::Uninitialized,
             current: "".to_string(),
@@ -27,9 +27,9 @@ impl Interrogate {
     }
 }
 
-impl BehaviorTree for Interrogate {
+impl<TC: ToolCaller> BehaviorTree for Interrogate<TC> {
     type Controller = BarkController;
-    type Model = BarkModel;
+    type Model = BarkModel<TC>;
 
     fn resume_with(
         self: &mut Self,

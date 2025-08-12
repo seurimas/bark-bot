@@ -93,7 +93,7 @@ pub struct BarkModel<TC: ToolCaller = McpAndTree> {
     embedding_client: EmbeddingClientModel,
 }
 
-impl std::fmt::Debug for BarkModel {
+impl<TC: ToolCaller> std::fmt::Debug for BarkModel<TC> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BarkModel")
             .field("openai_clients", &self.openai_clients)

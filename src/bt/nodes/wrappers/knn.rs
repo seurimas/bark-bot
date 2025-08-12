@@ -1,23 +1,23 @@
 use crate::prelude::*;
 use tokio::task::JoinHandle;
 
-pub struct Knn {
+pub struct Knn<TC: ToolCaller> {
     path: String,
     compared: TextValue,
     k: usize,
     current: usize,
     results: Vec<String>,
-    node: Box<dyn BehaviorTree<Model = BarkModel, Controller = BarkController> + Send + Sync>,
+    node: Box<dyn BehaviorTree<Model = BarkModel<TC>, Controller = BarkController> + Send + Sync>,
     join_handle: Option<JoinHandle<Result<(Vec<f32>, Option<i32>), String>>>,
 }
 
-impl Knn {
+impl<TC: ToolCaller> Knn<TC> {
     pub fn new(
         path: String,
         compared: TextValue,
         k: usize,
         mut nodes: Vec<
-            Box<dyn BehaviorTree<Model = BarkModel, Controller = BarkController> + Send + Sync>,
+            Box<dyn BehaviorTree<Model = BarkModel<TC>, Controller = BarkController> + Send + Sync>,
         >,
     ) -> Self {
         Self {
@@ -32,9 +32,9 @@ impl Knn {
     }
 }
 
-impl BehaviorTree for Knn {
+impl<TC: ToolCaller> BehaviorTree for Knn<TC> {
     type Controller = BarkController;
-    type Model = BarkModel;
+    type Model = BarkModel<TC>;
 
     fn resume_with(
         self: &mut Self,

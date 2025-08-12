@@ -6,18 +6,20 @@ use tokio::task::JoinHandle;
 static PROMPT_IDS: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Prompt {
+pub struct Prompt<TC: ToolCaller> {
     pub ai_model: Option<TextValue>,
     pub prompt: PromptValue,
     #[serde(skip)]
     pub join_handle: Option<JoinHandle<(String, BehaviorTreeState, Option<i32>)>>,
     #[serde(skip)]
     pub prompt_id: Option<usize>,
+    #[serde(skip)]
+    pub _phantom: std::marker::PhantomData<TC>,
 }
 
-impl BehaviorTree for Prompt {
+impl<TC: ToolCaller> BehaviorTree for Prompt<TC> {
     type Controller = BarkController;
-    type Model = BarkModel;
+    type Model = BarkModel<TC>;
 
     fn resume_with(
         self: &mut Self,
@@ -78,17 +80,19 @@ impl BehaviorTree for Prompt {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct MatchResponse {
+pub struct MatchResponse<TC: ToolCaller> {
     pub ai_model: Option<TextValue>,
     pub matches: TextMatcher,
     pub prompt: PromptValue,
     #[serde(skip)]
     pub join_handle: Option<JoinHandle<(String, BarkState, Option<i32>)>>,
+    #[serde(skip)]
+    pub _phantom: std::marker::PhantomData<TC>,
 }
 
-impl BehaviorTree for MatchResponse {
+impl<TC: ToolCaller> BehaviorTree for MatchResponse<TC> {
     type Controller = BarkController;
-    type Model = BarkModel;
+    type Model = BarkModel<TC>;
 
     fn resume_with(
         self: &mut Self,
