@@ -12,9 +12,13 @@ static PROMPT_IDS: AtomicUsize = AtomicUsize::new(0);
 pub struct Agent<TC: ToolCaller> {
     pub ai_model: Option<TextValue>,
     pub prompt: PromptValue,
-    pub tool_filters: Vec<String>,
+    pub tool_filters: TextValue,
     #[serde(skip)]
-    pub join_handle: Option<JoinHandle<(String, Vec<BarkMessage>, BarkState, Option<i32>)>>,
+    pub join_handle: Option<
+        JoinHandle<
+            Result<(String, Vec<BarkMessage>, BarkState, Option<i32>), (String, Option<i32>)>,
+        >,
+    >,
     #[serde(skip)]
     pub prompt_id: Option<usize>,
     #[serde(skip)]
@@ -34,17 +38,26 @@ impl<TC: ToolCaller> BehaviorTree for Agent<TC> {
     ) -> BarkState {
         check_gas!(gas);
         if let (Some(id), Some(join_handle)) = (&self.prompt_id, &mut self.join_handle) {
-            if let Ok((output, chat, result, new_gas)) = try_join(join_handle) {
+            if let Ok(result) = try_join(join_handle) {
                 self.join_handle = None;
-                *gas = new_gas;
-                audit.data(&"Prompt", &format!("output-{}", id), &output);
-                if result == BarkState::Complete {
-                    controller
-                        .text_variables
-                        .insert(VariableId::LastOutput, output);
-                    controller.prompts.insert(VariableId::LastOutput, chat);
+                match result {
+                    Ok((output, chat, result, new_gas)) => {
+                        *gas = new_gas;
+                        audit.data(&"Prompt", &format!("output-{}", id), &output);
+                        if result == BarkState::Complete {
+                            controller
+                                .text_variables
+                                .insert(VariableId::LastOutput, output);
+                            controller.prompts.insert(VariableId::LastOutput, chat);
+                        }
+                        return result;
+                    }
+                    Err((err, new_gas)) => {
+                        *gas = new_gas;
+                        audit.data(&"Prompt", &format!("error-{}", id), &err);
+                        return BarkState::Failed;
+                    }
                 }
-                return result;
             } else {
                 return BarkState::Waiting;
             }
@@ -56,7 +69,13 @@ impl<TC: ToolCaller> BehaviorTree for Agent<TC> {
             return BarkState::Failed;
         }
         audit.data(&"Prompt", &format!("prompt-{}", prompt_id), &prompt);
-        let tools = model.get_tools(&self.tool_filters);
+        let tool_filters_text = controller.get_text(&self.tool_filters);
+        let tool_filters: Vec<String> = tool_filters_text
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        let tools = model.get_tools(&tool_filters);
         let ai_model = self.ai_model.as_ref().map(|v| controller.get_text(v));
         self.join_handle = Some(tokio::spawn(powered_chat(
             ai_model,

@@ -10,7 +10,8 @@ pub struct Prompt<TC: ToolCaller> {
     pub ai_model: Option<TextValue>,
     pub prompt: PromptValue,
     #[serde(skip)]
-    pub join_handle: Option<JoinHandle<(String, BehaviorTreeState, Option<i32>)>>,
+    pub join_handle:
+        Option<JoinHandle<Result<(String, BehaviorTreeState, Option<i32>), (String, Option<i32>)>>>,
     #[serde(skip)]
     pub prompt_id: Option<usize>,
     #[serde(skip)]
@@ -32,24 +33,32 @@ impl<TC: ToolCaller> BehaviorTree for Prompt<TC> {
         if let (Some(id), Some(join_handle)) = (&self.prompt_id, &mut self.join_handle) {
             if let Ok(result) = try_join(join_handle) {
                 self.join_handle = None;
-                let (output, result, new_gas) = result;
-                *gas = new_gas;
-                audit.data(&"Prompt", &format!("output-{}", id), &output);
-                if result == BarkState::Complete {
-                    let mut prompt = controller.get_prompt(&self.prompt);
-                    prompt.push(BarkMessage {
-                        role: BarkRole::Assistant,
-                        content: BarkContent::Text(output.clone()),
-                    });
-                    controller
-                        .prompts
-                        .insert(VariableId::LastOutput, prompt.clone());
+                match result {
+                    Ok((output, result, new_gas)) => {
+                        *gas = new_gas;
+                        audit.data(&"Prompt", &format!("output-{}", id), &output);
+                        if result == BarkState::Complete {
+                            let mut prompt = controller.get_prompt(&self.prompt);
+                            prompt.push(BarkMessage {
+                                role: BarkRole::Assistant,
+                                content: BarkContent::Text(output.clone()),
+                            });
+                            controller
+                                .prompts
+                                .insert(VariableId::LastOutput, prompt.clone());
 
-                    controller
-                        .text_variables
-                        .insert(VariableId::LastOutput, output);
+                            controller
+                                .text_variables
+                                .insert(VariableId::LastOutput, output);
+                        }
+                        return result;
+                    }
+                    Err((err, new_gas)) => {
+                        *gas = new_gas;
+                        audit.data(&"Prompt", &format!("error-{}", id), &err);
+                        return BarkState::Failed;
+                    }
                 }
-                return result;
             } else {
                 return BarkState::Waiting;
             }
@@ -85,7 +94,8 @@ pub struct MatchResponse<TC: ToolCaller> {
     pub matches: TextMatcher,
     pub prompt: PromptValue,
     #[serde(skip)]
-    pub join_handle: Option<JoinHandle<(String, BarkState, Option<i32>)>>,
+    pub join_handle:
+        Option<JoinHandle<Result<(String, BarkState, Option<i32>), (String, Option<i32>)>>>,
     #[serde(skip)]
     pub _phantom: std::marker::PhantomData<TC>,
 }
@@ -104,21 +114,29 @@ impl<TC: ToolCaller> BehaviorTree for MatchResponse<TC> {
         if let Some(join_handle) = &mut self.join_handle {
             if let Ok(result) = try_join(join_handle) {
                 self.join_handle = None; // Clear the join handle after completion
-                let (output, result, new_gas) = result;
-                *gas = new_gas;
-                check_gas!(gas);
-                if result == BarkState::Complete {
-                    controller
-                        .text_variables
-                        .insert(VariableId::LastOutput, output.clone());
-                    audit.data(&"MatchResponse", &"output", &output);
-                    if controller.text_matches(&TextValue::Simple(output), &self.matches) {
-                        return BarkState::Complete;
-                    } else {
+                match result {
+                    Ok((output, result, new_gas)) => {
+                        *gas = new_gas;
+                        audit.data(&"MatchResponse", &"output", &output);
+                        if result == BarkState::Complete {
+                            controller
+                                .text_variables
+                                .insert(VariableId::LastOutput, output.clone());
+                            if controller.text_matches(&TextValue::Simple(output), &self.matches) {
+                                return BarkState::Complete;
+                            } else {
+                                return BarkState::Failed;
+                            }
+                        } else {
+                            return result;
+                        }
+                    }
+
+                    Err((err, new_gas)) => {
+                        *gas = new_gas;
+                        audit.data(&"MatchResponse", &"error", &err);
                         return BarkState::Failed;
                     }
-                } else {
-                    return result;
                 }
             } else {
                 return BarkState::Waiting;

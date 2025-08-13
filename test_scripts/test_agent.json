@@ -6,9 +6,7 @@
                     "prompt": {
                         "Quick": "Call the debug function. That's all I want you to do."
                     },
-                    "tool_filters": [
-                        "debug"
-                    ]
+                    "tool_filters": "debug"
                 }
             }
         },

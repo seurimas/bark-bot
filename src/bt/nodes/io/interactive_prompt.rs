@@ -137,18 +137,30 @@ async fn multi_prompt<TC: ToolCaller>(
     for _ in 0..count {
         print!("."); // Progress indicator
         let _ = std::io::stdout().flush();
-        let (output, result, new_gas) =
-            powered_prompt(ai_model.clone(), prompt.clone(), model.clone(), gas).await;
-        gas = new_gas; // TODO: handle gas properly
+        let output =
+            match powered_prompt(ai_model.clone(), prompt.clone(), model.clone(), gas).await {
+                Ok((output, result, new_gas)) => {
+                    gas = new_gas; // TODO: handle gas properly
+                    if result == BarkState::Complete {
+                        Some(output)
+                    } else {
+                        None
+                    }
+                }
+                Err((err, new_gas)) => {
+                    eprintln!("Error during multi_prompt: {}", err);
+                    gas = new_gas; // TODO: handle gas properly
+                    None
+                }
+            };
+        let Some(output) = output else {
+            continue;
+        };
+        results.push(output);
         if let Some(gas) = gas {
             if gas <= 0 {
                 break;
             }
-        }
-        if result == BarkState::Complete {
-            results.push(output);
-        } else {
-            break;
         }
     }
     println!();

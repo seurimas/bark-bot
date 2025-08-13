@@ -45,11 +45,11 @@ pub enum BarkNode<TC: ToolCaller> {
     Agent(PromptValue),
     AgentWithFilters {
         prompt: PromptValue,
-        tool_filters: Vec<String>,
+        tool_filters: TextValue,
     },
     AgentWithFiltersAndModel {
         prompt: PromptValue,
-        tool_filters: Vec<String>,
+        tool_filters: TextValue,
         ai_model: TextValue,
     },
     // Response checks
@@ -238,7 +238,7 @@ impl<TC: ToolCaller> UserNodeDefinition for BarkNode<TC> {
             BarkNode::Agent(prompt) => Box::new(Agent::<TC> {
                 ai_model: None,
                 prompt: prompt.clone(),
-                tool_filters: vec![],
+                tool_filters: TextValue::Simple(String::new()), // Default to no filters
                 join_handle: None,
                 prompt_id: None,
                 _phantom: std::marker::PhantomData,

@@ -6,7 +6,7 @@
                     "prompt": {
                         "Quick": "Fetch a simplified version of example.com and print what you get back."
                     },
-                    "tool_filters": []
+                    "tool_filters": ""
                 }
             }
         },
