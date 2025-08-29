@@ -79,6 +79,7 @@ pub fn openai_get_from_env() -> Option<BarkModelConfig> {
             ollama_models: HashMap::new(),
             tools: McpAndTreeConfig::default(),
             embedding_model,
+            strip_thoughts_in_chat: true,
         })
     } else {
         None
@@ -185,19 +186,19 @@ impl From<BarkChat> for ChatCompletionRequest {
                             tool_call_id: message.tool_id().cloned(),
                         });
                     } else if matches!(top.role, MessageRole::user)
-                        == matches!(message.role, BarkRole::User)
+                        && matches!(message.role, BarkRole::User)
                     {
                         push_content(&mut top.content, text_content);
                     } else if matches!(top.role, MessageRole::assistant)
-                        == matches!(message.role, BarkRole::Assistant)
+                        && matches!(message.role, BarkRole::Assistant)
                     {
                         push_content(&mut top.content, text_content);
                     } else if matches!(top.role, MessageRole::system)
-                        == matches!(message.role, BarkRole::System)
+                        && matches!(message.role, BarkRole::System)
                     {
                         push_content(&mut top.content, text_content);
                     } else if matches!(top.role, MessageRole::tool)
-                        == matches!(message.role, BarkRole::Tool)
+                        && matches!(message.role, BarkRole::Tool)
                     {
                         push_content(&mut top.content, text_content);
                     } else {
@@ -230,7 +231,7 @@ impl From<BarkChat> for ChatCompletionRequest {
         ChatCompletionRequest {
             frequency_penalty: None,
             logit_bias: None,
-            max_tokens: Some(4096),
+            max_tokens: None,
             messages: combined,
             model: chat.model,
             n: None,
@@ -422,5 +423,50 @@ mod tests {
         let chat_request: ChatCompletionRequest = chat.into();
         // println!("Chat request: {:?}", chat_request);
         assert_eq!(chat_request.messages.len(), 3);
+    }
+
+    #[test]
+    fn test_combine() {
+        let messages = vec![
+            BarkMessage {
+                role: BarkRole::System,
+                content: BarkContent::Text("You are a helpful assistant.".to_string()),
+            },
+            BarkMessage {
+                role: BarkRole::User,
+                content: BarkContent::Text("Hello".to_string()),
+            },
+            BarkMessage {
+                role: BarkRole::User,
+                content: BarkContent::Text(" How are you?".to_string()),
+            },
+            BarkMessage {
+                role: BarkRole::Assistant,
+                content: BarkContent::Text("I am fine.".to_string()),
+            },
+            BarkMessage {
+                role: BarkRole::Assistant,
+                content: BarkContent::Text(" Thank you for asking.".to_string()),
+            },
+        ];
+        let chat_request: ChatCompletionRequest = BarkChat {
+            messages,
+            model: "gpt-4".to_string(),
+            temperature: None,
+        }
+        .into();
+        assert_eq!(chat_request.messages.len(), 3);
+        assert_eq!(
+            chat_request.messages[0].content,
+            Content::Text("You are a helpful assistant.".to_string())
+        );
+        assert_eq!(
+            chat_request.messages[1].content,
+            Content::Text("Hello How are you?".to_string())
+        );
+        assert_eq!(
+            chat_request.messages[2].content,
+            Content::Text("I am fine. Thank you for asking.".to_string())
+        );
     }
 }

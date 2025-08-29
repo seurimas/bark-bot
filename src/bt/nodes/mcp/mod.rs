@@ -16,7 +16,10 @@ pub struct Agent<TC: ToolCaller> {
     #[serde(skip)]
     pub join_handle: Option<
         JoinHandle<
-            Result<(String, Vec<BarkMessage>, BarkState, Option<i32>), (String, Option<i32>)>,
+            Result<
+                (String, Vec<BarkMessage>, BarkState, Option<i32>),
+                (String, Vec<BarkMessage>, Option<i32>),
+            >,
         >,
     >,
     #[serde(skip)]
@@ -52,8 +55,10 @@ impl<TC: ToolCaller> BehaviorTree for Agent<TC> {
                         }
                         return result;
                     }
-                    Err((err, new_gas)) => {
+                    Err((err, chat, new_gas)) => {
                         *gas = new_gas;
+                        audit.data(&"Prompt", &format!("error-chat-{}", id), &chat);
+                        controller.prompts.insert(VariableId::LastOutput, chat);
                         audit.data(&"Prompt", &format!("error-{}", id), &err);
                         return BarkState::Failed;
                     }

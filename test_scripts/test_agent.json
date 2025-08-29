@@ -4,7 +4,7 @@
             "User": {
                 "AgentWithFilters": {
                     "prompt": {
-                        "Quick": "Call the debug function. That's all I want you to do."
+                        "Quick": "Call the debug_tool function. That's all I want you to do. If you cannot, just describe the function or tool you do have at your disposal."
                     },
                     "tool_filters": "debug"
                 }

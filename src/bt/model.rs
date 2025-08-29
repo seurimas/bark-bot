@@ -18,6 +18,10 @@ pub struct AiModelConfig {
     pub temperature: Option<f32>,
 }
 
+fn default_stripping() -> bool {
+    true
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct BarkModelConfig<TC: ToolCaller = McpAndTree> {
     #[serde(default)]
@@ -27,6 +31,8 @@ pub struct BarkModelConfig<TC: ToolCaller = McpAndTree> {
     #[serde(flatten)]
     pub tools: TC::Config,
     pub embedding_model: (String, String, Option<String>),
+    #[serde(default = "default_stripping")]
+    pub strip_thoughts_in_chat: bool,
 }
 
 impl BarkModelConfig {
@@ -91,6 +97,7 @@ pub struct BarkModel<TC: ToolCaller = McpAndTree> {
     ollama_clients: HashMap<String, (String, Ollama, Option<f32>)>,
     tools: TC,
     embedding_client: EmbeddingClientModel,
+    pub strip_thoughts_in_chat: bool,
 }
 
 impl<TC: ToolCaller> std::fmt::Debug for BarkModel<TC> {
@@ -181,6 +188,7 @@ impl<TC: ToolCaller> BarkModel<TC> {
             ollama_clients,
             tools,
             embedding_client,
+            strip_thoughts_in_chat: config.strip_thoughts_in_chat,
         }
     }
 

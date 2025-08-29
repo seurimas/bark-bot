@@ -2,7 +2,7 @@ use std::{env::args, process::ExitCode};
 
 use bark_bot::{
     bt::BarkModelConfig,
-    prelude::{read_tree, BarkState},
+    prelude::{read_tree, BarkState, BehaviorTreeAudit, PrintlnDataLogger},
 };
 
 #[tokio::main]
@@ -40,7 +40,7 @@ async fn main() -> ExitCode {
     let mut controller = bark_bot::bt::BarkController::new();
     let mut gas = Some(gas);
     // let mut audit = Some(Default::default());
-    let mut audit = None; // Disable audit for now, can be enabled later if needed
+    let mut audit = Some(BehaviorTreeAudit::data_only(PrintlnDataLogger)); // Disable audit for now, can be enabled later if needed
     let model = bark_bot::bt::BarkModel::new(model_config, tree_root).await;
     let mut state = tree.resume_with(&model, &mut controller, &mut gas, &mut audit);
     while state == BarkState::Waiting {

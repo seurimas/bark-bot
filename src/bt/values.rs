@@ -28,6 +28,12 @@ pub enum PromptValue {
     Joined(Vec<PromptValue>),
 }
 
+impl From<Vec<MessageValue>> for PromptValue {
+    fn from(messages: Vec<MessageValue>) -> Self {
+        PromptValue::Chat(messages)
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub enum TextValue {
     Simple(String),

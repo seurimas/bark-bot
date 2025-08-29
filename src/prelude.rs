@@ -1,3 +1,4 @@
+use crate::bt::strip_thoughts;
 pub use crate::bt::values::{MessageValue, PromptValue, TextMatcher, TextValue, VariableId};
 pub use crate::bt::BarkDef;
 pub use crate::bt::BarkNode;
@@ -104,7 +105,10 @@ pub async fn powered_chat<TC: ToolCaller>(
     model: BarkModel<TC>,
     mut gas: Option<i32>,
     tools: Vec<BarkTool>,
-) -> Result<(String, Vec<BarkMessage>, BarkState, Option<i32>), (String, Option<i32>)> {
+) -> Result<
+    (String, Vec<BarkMessage>, BarkState, Option<i32>),
+    (String, Vec<BarkMessage>, Option<i32>),
+> {
     loop {
         let response = model
             .clone()
@@ -120,17 +124,26 @@ pub async fn powered_chat<TC: ToolCaller>(
                     *gas = *gas - usage.unwrap_or(1000) as i32;
                 }
                 if choices.is_empty() {
-                    return Err(("Empty response from model".to_string(), gas));
+                    return Err(("Empty response from model".to_string(), prompt, gas));
                 } else if choices[0].value.is_empty() {
-                    return Err(("Empty message from model".to_string(), gas));
+                    return Err(("Empty message from model".to_string(), prompt, gas));
                 } else if choices.len() > 1 {
-                    return Err(("Multiple choices returned from model".to_string(), gas));
+                    return Err((
+                        "Multiple choices returned from model".to_string(),
+                        prompt,
+                        gas,
+                    ));
                 }
                 let response = choices.pop().unwrap();
                 let mut messages = prompt.clone();
+                let value = if model.strip_thoughts_in_chat {
+                    strip_thoughts(&response.value)
+                } else {
+                    response.value.clone()
+                };
                 messages.push(BarkMessage {
                     role: BarkRole::Assistant,
-                    content: BarkContent::Text(response.value.clone()),
+                    content: BarkContent::Text(value),
                 });
                 return Ok((response.value, messages, BarkState::Complete, gas));
             }
@@ -155,18 +168,30 @@ pub async fn powered_chat<TC: ToolCaller>(
                                     },
                                 });
                             } else {
-                                return Err(("Tool call returned no result".to_string(), gas));
+                                return Err((
+                                    "Tool call returned no result".to_string(),
+                                    messages,
+                                    gas,
+                                ));
                             }
                         }
                         Err(e) => {
-                            return Err((format!("Tool call failed: {}", e), gas));
+                            return Err((format!("Tool call failed: {}", e), messages, gas));
                         }
                     }
                 }
                 prompt = messages;
             }
             Err(e) => {
-                return Err((format!("Error from model: {:?}", e), gas));
+                return Err((
+                    format!(
+                        "Error from model: {:?}, last_message: {:?}",
+                        e,
+                        prompt[prompt.len() - 1],
+                    ),
+                    prompt,
+                    gas,
+                ));
             }
         }
     }

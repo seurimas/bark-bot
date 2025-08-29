@@ -220,15 +220,7 @@ impl BarkController {
                     // eprintln!("User variable not found: {:?}", id);
                     String::new()
                 });
-                if text.contains("<think>") && text.contains("</think>") {
-                    let start = text.find("<think>").unwrap();
-                    let end = text.find("</think>").unwrap();
-                    return format!("{}{}", &text[..start], &text[end + 8..])
-                        .trim()
-                        .to_string();
-                } else {
-                    return text;
-                }
+                strip_thoughts(&text)
             }
             TextValue::Simple(s) => s.clone(),
             TextValue::Multi(texts) => texts.iter().map(|t| self.get_text(t)).collect(),
@@ -285,5 +277,17 @@ impl BarkController {
         } else {
             self.prompts.insert(id, prompt);
         }
+    }
+}
+
+pub fn strip_thoughts(text: &String) -> String {
+    if text.contains("<think>") && text.contains("</think>") {
+        let start = text.find("<think>").unwrap();
+        let end = text.find("</think>").unwrap();
+        return format!("{}{}", &text[..start], &text[end + 8..])
+            .trim()
+            .to_string();
+    } else {
+        return text.clone();
     }
 }

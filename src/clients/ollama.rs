@@ -41,6 +41,7 @@ pub fn ollama_get_from_env() -> Option<BarkModelConfig> {
             ollama_models: models,
             tools: McpAndTreeConfig::default(),
             embedding_model,
+            strip_thoughts_in_chat: true,
         })
     } else {
         None
@@ -127,19 +128,19 @@ impl From<BarkChat> for ollama_rs::generation::chat::request::ChatMessageRequest
                             images: None,
                         });
                     } else if matches!(top.role, MessageRole::User)
-                        == matches!(message.role, BarkRole::User)
+                        && matches!(message.role, BarkRole::User)
                     {
                         push_content(&mut top.content, text_content);
                     } else if matches!(top.role, MessageRole::Assistant)
-                        == matches!(message.role, BarkRole::Assistant)
+                        && matches!(message.role, BarkRole::Assistant)
                     {
                         push_content(&mut top.content, text_content);
                     } else if matches!(top.role, MessageRole::System)
-                        == matches!(message.role, BarkRole::System)
+                        && matches!(message.role, BarkRole::System)
                     {
                         push_content(&mut top.content, text_content);
                     } else if matches!(top.role, MessageRole::Tool)
-                        == matches!(message.role, BarkRole::Tool)
+                        && matches!(message.role, BarkRole::Tool)
                     {
                         push_content(&mut top.content, text_content);
                     } else {
