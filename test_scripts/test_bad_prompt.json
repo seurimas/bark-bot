@@ -1,24 +1,20 @@
 {
     "Sequence": [
         {
-            "User": {
-                "Prompt": {
-                    "Chat": [
-                        {
-                            "System": "You are a helpful assistant."
-                        },
-                        {
-                            "User": "What is the capital of France? Keep your answer concise, providing just the name of the city."
-                        }
-                    ]
-                }
+            "Prompt": {
+                "Chat": [
+                    {
+                        "System": "You are a helpful assistant."
+                    },
+                    {
+                        "User": "What is the capital of France? Keep your answer concise, providing just the name of the city."
+                    }
+                ]
             }
         },
         {
-            "User": {
-                "PrintLine": {
-                    "Variable": "LastOutput"
-                }
+            "PrintLine": {
+                "Variable": "LastOutput"
             }
         }
     ]

@@ -1,31 +1,25 @@
-{
-    "Wrapper": [
-        {
-            "Repl": [
-                {
-                    "Simple": "What test do you want to run?"
-                },
-                [
-                    {
-                        "Simple": "stdio"
-                    },
-                    {
-                        "Simple": "knn"
-                    }
-                ]
-            ]
-        },
-        [
+[
+    {
+        "Repl": [
             {
-                "User": {
-                    "Subtree": "test_scripts/test_stdio.json"
-                }
+                "Simple": "What test do you want to run?"
             },
-            {
-                "User": {
-                    "Subtree": "test_scripts/test_knn.json"
+            [
+                {
+                    "Simple": "stdio"
+                },
+                {
+                    "Simple": "knn"
                 }
-            }
+            ]
         ]
+    },
+    [
+        {
+            "Subtree": "test_scripts/test_stdio.json"
+        },
+        {
+            "Subtree": "test_scripts/test_knn.json"
+        }
     ]
-}
+]

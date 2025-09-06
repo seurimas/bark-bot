@@ -1,38 +1,30 @@
 {
     "Sequence": [
         {
-            "User": {
-                "PrintLine": {
-                    "Simple": "Ask your question! I will provide a concise answer."
-                }
+            "PrintLine": {
+                "Simple": "Ask your question! I will provide a concise answer."
             }
         },
         {
-            "User": {
-                "ReadLine": {
-                    "User": "Input"
-                }
+            "ReadLine": {
+                "User": "Input"
             }
         },
         {
-            "User": {
-                "Chat": [
-                    {
-                        "System": "I provide concise answers to questions. I do not offer unnecessary details."
-                    },
-                    {
-                        "UserVar": {
-                            "User": "Input"
-                        }
+            "Chat": [
+                {
+                    "System": "I provide concise answers to questions. I do not offer unnecessary details."
+                },
+                {
+                    "UserVar": {
+                        "User": "Input"
                     }
-                ]
-            }
+                }
+            ]
         },
         {
-            "User": {
-                "PrintLine": {
-                    "Variable": "LastOutput"
-                }
+            "PrintLine": {
+                "Variable": "LastOutput"
             }
         }
     ]

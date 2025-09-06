@@ -1,48 +1,40 @@
 {
     "Sequence": [
-        {
-            "Wrapper": [
-                {
-                    "Knn": [
-                        "test_push.db",
-                        {
-                            "Simple": "Paris is the best city in France."
-                        },
-                        2
-                    ]
-                },
-                [
+        [
+            {
+                "Knn": [
+                    "test_push.db",
                     {
-                        "User": {
-                            "PrintLine": {
-                                "Variable": "LoopValue"
-                            }
-                        }
-                    }
+                        "Simple": "Paris is the best city in France."
+                    },
+                    2
                 ]
-            ]
-        },
-        {
-            "Wrapper": [
+            },
+            [
                 {
-                    "KnnQuery": [
-                        "test_push.db",
-                        {
-                            "Simple": "What is the capital of France?"
-                        },
-                        2
-                    ]
-                },
-                [
-                    {
-                        "User": {
-                            "PrintLine": {
-                                "Variable": "LoopValue"
-                            }
-                        }
+                    "PrintLine": {
+                        "Variable": "LoopValue"
                     }
-                ]
+                }
             ]
-        }
+        ],
+        [
+            {
+                "KnnQuery": [
+                    "test_push.db",
+                    {
+                        "Simple": "What is the capital of France?"
+                    },
+                    2
+                ]
+            },
+            [
+                {
+                    "PrintLine": {
+                        "Variable": "LoopValue"
+                    }
+                }
+            ]
+        ]
     ]
 }

@@ -1,31 +1,27 @@
 {
     "Sequence": [
         {
-            "User": {
-                "PromptWith": [
-                    "default",
-                    {
-                        "Quick": "What is the capital of France? Keep your answer concise, providing just the name of the city."
-                    }
-                ]
-            }
+            "PromptWith": [
+                "default",
+                {
+                    "Quick": "What is the capital of France? Keep your answer concise, providing just the name of the city."
+                }
+            ]
         },
         {
-            "User": {
-                "SetText": [
-                    "LastOutput",
-                    {
-                        "Multi": [
-                            {
-                                "Simple": "Repeat this fact to the user: The capital of France is "
-                            },
-                            {
-                                "WithoutThoughts": "LastOutput"
-                            }
-                        ]
-                    }
-                ]
-            }
+            "SetText": [
+                "LastOutput",
+                {
+                    "Multi": [
+                        {
+                            "Simple": "Repeat this fact to the user: The capital of France is "
+                        },
+                        {
+                            "WithoutThoughts": "LastOutput"
+                        }
+                    ]
+                }
+            ]
         }
     ]
 }

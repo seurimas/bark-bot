@@ -1,20 +1,16 @@
 {
     "Sequence": [
         {
-            "User": {
-                "AgentWithFilters": {
-                    "prompt": {
-                        "Quick": "Call the tool__test function with \"local\" as its single argument. That's all I want you to do."
-                    },
-                    "tool_filters": "tool__test"
-                }
+            "AgentWithFilters": {
+                "prompt": {
+                    "Quick": "Call the tool__test function with \"local\" as its single argument. That's all I want you to do."
+                },
+                "tool_filters": "tool__test"
             }
         },
         {
-            "User": {
-                "PrintLine": {
-                    "Variable": "LastOutput"
-                }
+            "PrintLine": {
+                "Variable": "LastOutput"
             }
         }
     ]

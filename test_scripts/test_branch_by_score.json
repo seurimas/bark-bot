@@ -31,24 +31,18 @@
                 },
                 [
                     {
-                        "User": {
-                            "PrintLine": {
-                                "Variable": "LoopValue"
-                            }
+                        "PrintLine": {
+                            "Variable": "LoopValue"
                         }
                     },
                     {
-                        "User": {
-                            "PrintLine": {
-                                "Simple": "Using America instead. What went wrong?"
-                            }
+                        "PrintLine": {
+                            "Simple": "Using America instead. What went wrong?"
                         }
                     },
                     {
-                        "User": {
-                            "PrintLine": {
-                                "Simple": "Using Canada instead. What went wrong?"
-                            }
+                        "PrintLine": {
+                            "Simple": "Using Canada instead. What went wrong?"
                         }
                     }
                 ]
@@ -76,24 +70,18 @@
                 },
                 [
                     {
-                        "User": {
-                            "PrintLine": {
-                                "Simple": "Using France instead. What went wrong?"
-                            }
+                        "PrintLine": {
+                            "Simple": "Using France instead. What went wrong?"
                         }
                     },
                     {
-                        "User": {
-                            "PrintLine": {
-                                "Simple": "Found the right question!"
-                            }
+                        "PrintLine": {
+                            "Simple": "Found the right question!"
                         }
                     },
                     {
-                        "User": {
-                            "PrintLine": {
-                                "Simple": "Using Canada instead. What went wrong?"
-                            }
+                        "PrintLine": {
+                            "Simple": "Using Canada instead. What went wrong?"
                         }
                     }
                 ]
@@ -121,24 +109,18 @@
                 },
                 [
                     {
-                        "User": {
-                            "PrintLine": {
-                                "Simple": "France is this garbage!"
-                            }
+                        "PrintLine": {
+                            "Simple": "France is this garbage!"
                         }
                     },
                     {
-                        "User": {
-                            "PrintLine": {
-                                "Simple": "America is this garbage!"
-                            }
+                        "PrintLine": {
+                            "Simple": "America is this garbage!"
                         }
                     },
                     {
-                        "User": {
-                            "PrintLine": {
-                                "Simple": "Canada is this garbage!"
-                            }
+                        "PrintLine": {
+                            "Simple": "Canada is this garbage!"
                         }
                     }
                 ]

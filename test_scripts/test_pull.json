@@ -1,37 +1,29 @@
 {
     "Sequence": [
         {
-            "User": {
-                "PullBestScored": [
-                    "test_push.db",
-                    {
-                        "Simple": "France's capital is Paris. It is a nice night when I arrived."
-                    }
-                ]
-            }
-        },
-        {
-            "User": {
-                "PrintLine": {
-                    "Variable": "LastOutput"
+            "PullBestScored": [
+                "test_push.db",
+                {
+                    "Simple": "France's capital is Paris. It is a nice night when I arrived."
                 }
+            ]
+        },
+        {
+            "PrintLine": {
+                "Variable": "LastOutput"
             }
         },
         {
-            "User": {
-                "PullBestQueryMatch": [
-                    "test_push.db",
-                    {
-                        "Simple": "What is the capital of France?"
-                    }
-                ]
-            }
-        },
-        {
-            "User": {
-                "PrintLine": {
-                    "Variable": "LastOutput"
+            "PullBestQueryMatch": [
+                "test_push.db",
+                {
+                    "Simple": "What is the capital of France?"
                 }
+            ]
+        },
+        {
+            "PrintLine": {
+                "Variable": "LastOutput"
             }
         }
     ]
