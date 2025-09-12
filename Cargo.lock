@@ -198,6 +198,7 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 [[package]]
 name = "behavior-bark"
 version = "0.1.0"
+source = "git+https://github.com/seurimas/behavior-bark?branch=main#fe1540c8949cd6dab4a99c79e687c05addecce5a"
 dependencies = [
  "lazy_static",
  "serde",
