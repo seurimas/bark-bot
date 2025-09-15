@@ -34,7 +34,6 @@ impl BarkController {
                     VariableId::LastOutput => "last_output",
                     VariableId::PreEmbed => "pre_embed",
                     VariableId::User(s) => s,
-                    VariableId::PreLoaded(s) => s,
                 }
             );
             // This is actually probably usually fine.
@@ -80,11 +79,11 @@ impl BarkController {
     ) -> Self {
         let mut text_variables = HashMap::new();
         for (key, value) in preloaded_text {
-            text_variables.insert(VariableId::PreLoaded(key), value);
+            text_variables.insert(VariableId::User(key), value);
         }
         let mut templates = HashMap::new();
         for (key, value) in preloaded_templates {
-            templates.insert(VariableId::PreLoaded(key), value);
+            templates.insert(VariableId::User(key), value);
         }
         Self {
             text_variables,

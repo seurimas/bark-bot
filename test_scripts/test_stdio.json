@@ -6,9 +6,7 @@
             }
         },
         {
-            "ReadLine": {
-                "User": "Input"
-            }
+            "ReadLine": "Input"
         },
         {
             "Chat": [
@@ -16,9 +14,7 @@
                     "System": "I provide concise answers to questions. I do not offer unnecessary details."
                 },
                 {
-                    "UserVar": {
-                        "User": "Input"
-                    }
+                    "UserVar": "Input"
                 }
             ]
         },

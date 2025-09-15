@@ -2,14 +2,43 @@ use std::hash::Hash;
 
 use crate::prelude::*;
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum VariableId {
     LoopValue,
     Accumulator,
     LastOutput,
     PreEmbed,
     User(String),
-    PreLoaded(String),
+}
+
+impl<'de> Deserialize<'de> for VariableId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        pub enum VariableIdHelper {
+            LoopValue,
+            Accumulator,
+            LastOutput,
+            PreEmbed,
+            User(String),
+            #[serde(untagged)]
+            Untagged(String),
+        }
+        let helper = VariableIdHelper::deserialize(deserializer);
+        match helper {
+            Ok(value) => match value {
+                VariableIdHelper::LoopValue => Ok(VariableId::LoopValue),
+                VariableIdHelper::Accumulator => Ok(VariableId::Accumulator),
+                VariableIdHelper::LastOutput => Ok(VariableId::LastOutput),
+                VariableIdHelper::PreEmbed => Ok(VariableId::PreEmbed),
+                VariableIdHelper::User(s) => Ok(VariableId::User(s)),
+                VariableIdHelper::Untagged(s) => Ok(VariableId::User(s)),
+            },
+            Err(e) => Err(e),
+        }
+    }
 }
 
 impl From<&str> for VariableId {
