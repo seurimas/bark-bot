@@ -79,22 +79,31 @@ impl<TC: ToolCaller> BehaviorTree for GetEmbedding<TC> {
         mut _audit: &mut Option<BehaviorTreeAudit>,
     ) -> BarkState {
         if let Some(join_handle) = &mut self.join_handle {
-            if let Ok(result) = try_join(join_handle) {
-                self.join_handle = None; // Clear the join handle after completion
-                match result {
-                    Ok((embedding, new_gas)) => {
-                        *gas = new_gas;
-                        controller
-                            .embedding_variables
-                            .insert(self.variable.clone(), embedding);
-                        return BarkState::Complete;
+            match try_join(join_handle) {
+                Ok(result) => {
+                    self.join_handle = None; // Clear the join handle after completion
+                    match result {
+                        Ok((embedding, new_gas)) => {
+                            *gas = new_gas;
+                            controller
+                                .embedding_variables
+                                .insert(self.variable.clone(), embedding);
+                            return BarkState::Complete;
+                        }
+                        Err(_) => {
+                            return BarkState::Failed;
+                        }
                     }
-                    Err(_) => {
+                }
+                Err(join_failed) => {
+                    if join_failed {
+                        self.join_handle = None; // Clear the join handle on failure
                         return BarkState::Failed;
+                    } else {
+                        return BarkState::Waiting;
                     }
                 }
             }
-            return BarkState::Waiting;
         }
         let text = controller.get_text(&self.text);
         let model = model.clone();

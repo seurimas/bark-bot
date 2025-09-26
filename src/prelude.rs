@@ -197,16 +197,22 @@ pub async fn powered_chat<TC: ToolCaller>(
     }
 }
 
-pub fn try_join<T>(handle: &mut JoinHandle<T>) -> std::result::Result<T, ()> {
+/**
+ * Try to join a tokio JoinHandle if it is finished.
+ * If it is finished, return Ok with the result of the join.
+ * If it is not finished, return Err(false).
+ * If the join fails, return Err(true).
+ */
+pub fn try_join<T>(handle: &mut JoinHandle<T>) -> std::result::Result<T, bool> {
     if handle.is_finished() {
         match block_on(async { handle.await }) {
             Ok(result) => Ok(result),
             Err(_) => {
                 eprintln!("Join handle failed");
-                Err(())
+                Err(true)
             }
         }
     } else {
-        Err(())
+        Err(false)
     }
 }

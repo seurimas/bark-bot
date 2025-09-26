@@ -31,36 +31,46 @@ impl<TC: ToolCaller> BehaviorTree for Prompt<TC> {
     ) -> BarkState {
         check_gas!(gas);
         if let (Some(id), Some(join_handle)) = (&self.prompt_id, &mut self.join_handle) {
-            if let Ok(result) = try_join(join_handle) {
-                self.join_handle = None;
-                match result {
-                    Ok((output, result, new_gas)) => {
-                        *gas = new_gas;
-                        audit.data(&"Prompt", &format!("output-{}", id), &output);
-                        if result == BarkState::Complete {
-                            let mut prompt = controller.get_prompt(&self.prompt);
-                            prompt.push(BarkMessage {
-                                role: BarkRole::Assistant,
-                                content: BarkContent::Text(output.clone()),
-                            });
-                            controller
-                                .prompts
-                                .insert(VariableId::LastOutput, prompt.clone());
+            match try_join(join_handle) {
+                Ok(result) => {
+                    self.join_handle = None;
+                    match result {
+                        Ok((output, result, new_gas)) => {
+                            *gas = new_gas;
+                            audit.data(&"Prompt", &format!("output-{}", id), &output);
+                            if result == BarkState::Complete {
+                                let mut prompt = controller.get_prompt(&self.prompt);
+                                prompt.push(BarkMessage {
+                                    role: BarkRole::Assistant,
+                                    content: BarkContent::Text(output.clone()),
+                                });
+                                controller
+                                    .prompts
+                                    .insert(VariableId::LastOutput, prompt.clone());
 
-                            controller
-                                .text_variables
-                                .insert(VariableId::LastOutput, output);
+                                controller
+                                    .text_variables
+                                    .insert(VariableId::LastOutput, output);
+                            }
+                            return result;
                         }
-                        return result;
-                    }
-                    Err((err, new_gas)) => {
-                        *gas = new_gas;
-                        audit.data(&"Prompt", &format!("error-{}", id), &err);
-                        return BarkState::Failed;
+                        Err((err, new_gas)) => {
+                            *gas = new_gas;
+                            audit.data(&"Prompt", &format!("error-{}", id), &err);
+                            return BarkState::Failed;
+                        }
                     }
                 }
-            } else {
-                return BarkState::Waiting;
+
+                Err(join_failed) => {
+                    if join_failed {
+                        self.join_handle = None; // Clear the join handle on failure
+                        audit.data(&"Prompt", &format!("error-{}", id), &"Join failed");
+                        return BarkState::Failed;
+                    } else {
+                        return BarkState::Waiting;
+                    }
+                }
             }
         }
         let prompt = controller.get_prompt(&self.prompt);
@@ -112,34 +122,45 @@ impl<TC: ToolCaller> BehaviorTree for MatchResponse<TC> {
         mut audit: &mut Option<BehaviorTreeAudit>,
     ) -> BarkState {
         if let Some(join_handle) = &mut self.join_handle {
-            if let Ok(result) = try_join(join_handle) {
-                self.join_handle = None; // Clear the join handle after completion
-                match result {
-                    Ok((output, result, new_gas)) => {
-                        *gas = new_gas;
-                        audit.data(&"MatchResponse", &"output", &output);
-                        if result == BarkState::Complete {
-                            controller
-                                .text_variables
-                                .insert(VariableId::LastOutput, output.clone());
-                            if controller.text_matches(&TextValue::Simple(output), &self.matches) {
-                                return BarkState::Complete;
+            match try_join(join_handle) {
+                Ok(result) => {
+                    self.join_handle = None; // Clear the join handle after completion
+                    match result {
+                        Ok((output, result, new_gas)) => {
+                            *gas = new_gas;
+                            audit.data(&"MatchResponse", &"output", &output);
+                            if result == BarkState::Complete {
+                                controller
+                                    .text_variables
+                                    .insert(VariableId::LastOutput, output.clone());
+                                if controller
+                                    .text_matches(&TextValue::Simple(output), &self.matches)
+                                {
+                                    return BarkState::Complete;
+                                } else {
+                                    return BarkState::Failed;
+                                }
                             } else {
-                                return BarkState::Failed;
+                                return result;
                             }
-                        } else {
-                            return result;
+                        }
+
+                        Err((err, new_gas)) => {
+                            *gas = new_gas;
+                            audit.data(&"MatchResponse", &"error", &err);
+                            return BarkState::Failed;
                         }
                     }
-
-                    Err((err, new_gas)) => {
-                        *gas = new_gas;
-                        audit.data(&"MatchResponse", &"error", &err);
+                }
+                Err(join_failed) => {
+                    if join_failed {
+                        self.join_handle = None; // Clear the join handle on failure
+                        audit.data(&"MatchResponse", &"error", &"Join failed");
                         return BarkState::Failed;
+                    } else {
+                        return BarkState::Waiting;
                     }
                 }
-            } else {
-                return BarkState::Waiting;
             }
         }
         let prompt = controller.get_prompt(&self.prompt);

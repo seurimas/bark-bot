@@ -49,29 +49,37 @@ impl<TC: ToolCaller> BehaviorTree for Knn<TC> {
             self.join_handle = Some(tokio::spawn(model.get_embedding(compared_text, *gas)));
             return BarkState::Waiting;
         } else if let Some(join_handle) = &mut self.join_handle {
-            if let Ok(result) = try_join(join_handle) {
-                self.join_handle = None; // Clear the join handle after completion
-                if let Ok(result) = result {
-                    let compared_embedding = result.0;
-                    *gas = result.1;
-                    check_gas!(gas);
-                    match model.pull_best_matches(&self.path, compared_embedding, self.k) {
-                        Ok(results) => {
-                            if results.is_empty() {
+            match try_join(join_handle) {
+                Ok(result) => {
+                    self.join_handle = None; // Clear the join handle after completion
+                    if let Ok(result) = result {
+                        let compared_embedding = result.0;
+                        *gas = result.1;
+                        check_gas!(gas);
+                        match model.pull_best_matches(&self.path, compared_embedding, self.k) {
+                            Ok(results) => {
+                                if results.is_empty() {
+                                    return BarkState::Failed;
+                                }
+                                self.results = results;
+                                self.current = 0;
+                            }
+                            Err(_) => {
                                 return BarkState::Failed;
                             }
-                            self.results = results;
-                            self.current = 0;
                         }
-                        Err(_) => {
-                            return BarkState::Failed;
-                        }
+                    } else {
+                        return BarkState::Failed;
                     }
-                } else {
-                    return BarkState::Failed;
                 }
-            } else {
-                return BarkState::Waiting;
+                Err(join_failed) => {
+                    if join_failed {
+                        self.join_handle = None; // Clear the join handle on failure
+                        return BarkState::Failed;
+                    } else {
+                        return BarkState::Waiting;
+                    }
+                }
             }
         }
         while self.current < self.results.len() {

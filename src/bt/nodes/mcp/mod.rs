@@ -41,30 +41,39 @@ impl<TC: ToolCaller> BehaviorTree for Agent<TC> {
     ) -> BarkState {
         check_gas!(gas);
         if let (Some(id), Some(join_handle)) = (&self.prompt_id, &mut self.join_handle) {
-            if let Ok(result) = try_join(join_handle) {
-                self.join_handle = None;
-                match result {
-                    Ok((output, chat, result, new_gas)) => {
-                        *gas = new_gas;
-                        audit.data(&"Prompt", &format!("output-{}", id), &output);
-                        if result == BarkState::Complete {
-                            controller
-                                .text_variables
-                                .insert(VariableId::LastOutput, output);
-                            controller.prompts.insert(VariableId::LastOutput, chat);
+            match try_join(join_handle) {
+                Ok(result) => {
+                    self.join_handle = None;
+                    match result {
+                        Ok((output, chat, result, new_gas)) => {
+                            *gas = new_gas;
+                            audit.data(&"Prompt", &format!("output-{}", id), &output);
+                            if result == BarkState::Complete {
+                                controller
+                                    .text_variables
+                                    .insert(VariableId::LastOutput, output);
+                                controller.prompts.insert(VariableId::LastOutput, chat);
+                            }
+                            return result;
                         }
-                        return result;
-                    }
-                    Err((err, chat, new_gas)) => {
-                        *gas = new_gas;
-                        audit.data(&"Prompt", &format!("error-chat-{}", id), &chat);
-                        controller.prompts.insert(VariableId::LastOutput, chat);
-                        audit.data(&"Prompt", &format!("error-{}", id), &err);
-                        return BarkState::Failed;
+                        Err((err, chat, new_gas)) => {
+                            *gas = new_gas;
+                            audit.data(&"Prompt", &format!("error-chat-{}", id), &chat);
+                            controller.prompts.insert(VariableId::LastOutput, chat);
+                            audit.data(&"Prompt", &format!("error-{}", id), &err);
+                            return BarkState::Failed;
+                        }
                     }
                 }
-            } else {
-                return BarkState::Waiting;
+                Err(join_failed) => {
+                    if join_failed {
+                        self.join_handle = None; // Clear the join handle on failure
+                        audit.data(&"Prompt", &format!("error-{}", id), &"Join failed");
+                        return BarkState::Failed;
+                    } else {
+                        return BarkState::Waiting;
+                    }
+                }
             }
         }
         let prompt = controller.get_prompt(&self.prompt);

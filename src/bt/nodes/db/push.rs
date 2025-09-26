@@ -24,29 +24,37 @@ impl<TC: ToolCaller> BehaviorTree for PushSimpleEmbedding<TC> {
         mut _audit: &mut Option<BehaviorTreeAudit>,
     ) -> BarkState {
         if let Some(join_handle) = &mut self.join_handle {
-            if let Ok(result) = try_join(join_handle) {
-                self.join_handle = None;
-                match result {
-                    Ok((embedding, new_gas)) => {
-                        let db = controller.get_text(&self.db);
-                        *gas = new_gas;
-                        check_gas!(gas);
-                        let text = controller.get_text(&self.text);
-                        return match model.push_embedding(db.clone(), text, embedding, None) {
-                            Ok(_) => BarkState::Complete,
-                            Err(err) => {
-                                // eprintln!("Failed to push simple embedding: {:?}", err);
-                                BarkState::Failed
-                            }
-                        };
-                    }
-                    Err(err) => {
-                        // eprintln!("Failed to get embedding: {:?}", err);
-                        return BarkState::Failed;
+            match try_join(join_handle) {
+                Ok(result) => {
+                    self.join_handle = None;
+                    match result {
+                        Ok((embedding, new_gas)) => {
+                            let db = controller.get_text(&self.db);
+                            *gas = new_gas;
+                            check_gas!(gas);
+                            let text = controller.get_text(&self.text);
+                            return match model.push_embedding(db.clone(), text, embedding, None) {
+                                Ok(_) => BarkState::Complete,
+                                Err(err) => {
+                                    // eprintln!("Failed to push simple embedding: {:?}", err);
+                                    BarkState::Failed
+                                }
+                            };
+                        }
+                        Err(err) => {
+                            // eprintln!("Failed to get embedding: {:?}", err);
+                            return BarkState::Failed;
+                        }
                     }
                 }
-            } else {
-                return BarkState::Waiting;
+                Err(join_failed) => {
+                    if join_failed {
+                        self.join_handle = None; // Clear the join handle on failure
+                        return BarkState::Failed;
+                    } else {
+                        return BarkState::Waiting;
+                    }
+                }
             }
         }
         let text = controller.get_text(&self.text);
@@ -83,32 +91,41 @@ impl<TC: ToolCaller> BehaviorTree for PushValuedEmbedding<TC> {
         mut _audit: &mut Option<BehaviorTreeAudit>,
     ) -> BarkState {
         if let Some(join_handle) = &mut self.join_handle {
-            if let Ok(result) = try_join(join_handle) {
-                self.join_handle = None; // Clear the join handle after completion
-                match result {
-                    Ok((embedding, new_gas)) => {
-                        let db = controller.get_text(&self.db);
-                        let key_values = self
-                            .kvs
-                            .iter()
-                            .map(|(k, v)| (controller.get_text(k), controller.get_text(v)))
-                            .collect();
-                        *gas = new_gas;
-                        check_gas!(gas);
-                        let text = controller.get_text(&self.text);
-                        return match model.push_embedding(db, text, embedding, Some(key_values)) {
-                            Ok(_) => BarkState::Complete,
-                            Err(_) => BarkState::Failed,
-                        };
-                    }
+            match try_join(join_handle) {
+                Ok(result) => {
+                    self.join_handle = None; // Clear the join handle after completion
+                    match result {
+                        Ok((embedding, new_gas)) => {
+                            let db = controller.get_text(&self.db);
+                            let key_values = self
+                                .kvs
+                                .iter()
+                                .map(|(k, v)| (controller.get_text(k), controller.get_text(v)))
+                                .collect();
+                            *gas = new_gas;
+                            check_gas!(gas);
+                            let text = controller.get_text(&self.text);
+                            return match model.push_embedding(db, text, embedding, Some(key_values))
+                            {
+                                Ok(_) => BarkState::Complete,
+                                Err(_) => BarkState::Failed,
+                            };
+                        }
 
-                    Err(err) => {
-                        // eprintln!("Failed to get embedding: {:?}", err);
-                        return BarkState::Failed;
+                        Err(err) => {
+                            // eprintln!("Failed to get embedding: {:?}", err);
+                            return BarkState::Failed;
+                        }
                     }
                 }
-            } else {
-                return BarkState::Waiting;
+                Err(join_failed) => {
+                    if join_failed {
+                        self.join_handle = None; // Clear the join handle on failure
+                        return BarkState::Failed;
+                    } else {
+                        return BarkState::Waiting;
+                    }
+                }
             }
         }
 

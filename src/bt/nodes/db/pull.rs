@@ -24,35 +24,45 @@ impl<TC: ToolCaller> BehaviorTree for PullBestScored<TC> {
         mut audit: &mut Option<BehaviorTreeAudit>,
     ) -> BarkState {
         if let Some(join_handle) = &mut self.join_handle {
-            if let Ok(result) = try_join(join_handle) {
-                self.join_handle = None;
-                match result {
-                    Ok((embedding, new_gas)) => {
-                        let db = controller.get_text(&self.db);
-                        *gas = new_gas;
-                        check_gas!(gas);
-                        if let Ok(best_match) = model.pull_best_match(&db, embedding) {
-                            controller
-                                .text_variables
-                                .insert(VariableId::LastOutput, best_match);
-                            audit.mark(&format!("Pulled best match for: {}", db));
-                            audit.exit(&"PullBestScored", BarkState::Complete);
-                            return BarkState::Complete;
-                        } else {
-                            // eprintln!("Failed to pull best match");
-                            audit.mark(&format!("Failed to pull best match for: {}", db));
+            match try_join(join_handle) {
+                Ok(result) => {
+                    self.join_handle = None;
+                    match result {
+                        Ok((embedding, new_gas)) => {
+                            let db = controller.get_text(&self.db);
+                            *gas = new_gas;
+                            check_gas!(gas);
+                            if let Ok(best_match) = model.pull_best_match(&db, embedding) {
+                                controller
+                                    .text_variables
+                                    .insert(VariableId::LastOutput, best_match);
+                                audit.mark(&format!("Pulled best match for: {}", db));
+                                audit.exit(&"PullBestScored", BarkState::Complete);
+                                return BarkState::Complete;
+                            } else {
+                                // eprintln!("Failed to pull best match");
+                                audit.mark(&format!("Failed to pull best match for: {}", db));
+                                audit.exit(&"PullBestScored", BarkState::Failed);
+                                return BarkState::Failed;
+                            }
+                        }
+                        Err(err) => {
+                            audit.mark(&format!("Failed to get embedding: {}", err));
                             audit.exit(&"PullBestScored", BarkState::Failed);
                             return BarkState::Failed;
                         }
                     }
-                    Err(err) => {
-                        audit.mark(&format!("Failed to get embedding: {}", err));
+                }
+                Err(join_failed) => {
+                    if join_failed {
+                        self.join_handle = None; // Clear the join handle on failure
+                        audit.mark(&"Join failed");
                         audit.exit(&"PullBestScored", BarkState::Failed);
                         return BarkState::Failed;
+                    } else {
+                        return BarkState::Waiting;
                     }
                 }
-            } else {
-                return BarkState::Waiting;
             }
         }
         audit.enter(&"PullBestScored");
