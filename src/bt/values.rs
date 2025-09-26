@@ -90,6 +90,8 @@ impl<'de> Deserialize<'de> for TextValue {
             Structured(HashMap<String, TextValue>),
             #[serde(untagged)]
             Untagged(String),
+            #[serde(untagged)]
+            UntaggedDefault(VariableId, String),
         }
 
         let helper = TextValueHelper::deserialize(deserializer);
@@ -103,6 +105,7 @@ impl<'de> Deserialize<'de> for TextValue {
                 TextValueHelper::Multi(m) => Ok(TextValue::Multi(m)),
                 TextValueHelper::Structured(s) => Ok(TextValue::Structured(s)),
                 TextValueHelper::Untagged(s) => Ok(TextValue::Simple(s)),
+                TextValueHelper::UntaggedDefault(v, d) => Ok(TextValue::Default(v, d)),
             },
             Err(e) => Err(e),
         }
