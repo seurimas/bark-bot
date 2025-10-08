@@ -24,33 +24,43 @@ impl BarkController {
     }
 
     pub fn replace_template_variables(&self, line: &str) -> String {
-        let mut result = line.to_string();
-        for (key, value) in &self.text_variables {
-            let placeholder = format!(
-                "{{{{{}}}}}",
-                match key {
-                    VariableId::Accumulator => "accumulator",
-                    VariableId::LoopValue => "loop_value",
-                    VariableId::LastOutput => "last_output",
-                    VariableId::PreEmbed => "pre_embed",
-                    VariableId::User(s) => s,
-                }
-            );
-            // This is actually probably usually fine.
-            // if result.contains(&placeholder) && value.is_empty() {
-            //     eprintln!(
-            //         "Warning: Placeholder '{}' found in template but no value provided.",
-            //         placeholder
-            //     );
-            // }
-            result = result.replace(&placeholder, value);
+        self.replace_template_variables_helper(line, Vec::new())
+    }
+
+    fn replace_template_variables_helper(&self, line: &str, visited: Vec<VariableId>) -> String {
+        let mut result = String::new();
+        let mut remaining = line;
+        while remaining.contains("{{") && remaining.contains("}}") {
+            let start = remaining.find("{{").unwrap();
+            let end = remaining.find("}}").unwrap() + 2;
+            result.push_str(&remaining[..start]);
+            let key = &remaining[start + 2..end - 2];
+            let variable_id = match key {
+                "accumulator" => VariableId::Accumulator,
+                "loop_value" => VariableId::LoopValue,
+                "last_output" => VariableId::LastOutput,
+                "pre_embed" => VariableId::PreEmbed,
+                other => VariableId::User(other.to_string()),
+            };
+
+            // Check for loops
+            if visited.contains(&variable_id) {
+                result.push_str("<<WARNING:LOOP>>");
+            } else {
+                let replacement = self.text_variables.get(&variable_id);
+                let replacement = replacement
+                    .cloned()
+                    .map(|s| {
+                        let mut new_visited = visited.clone();
+                        new_visited.push(variable_id);
+                        self.replace_template_variables_helper(&s, new_visited)
+                    })
+                    .unwrap_or("".to_string());
+                result.push_str(&replacement);
+            }
+            remaining = &remaining[end..];
         }
-        if result.contains("{{") && result.contains("}}") {
-            // eprintln!(
-            //     "Warning: Unresolved template variable: {}",
-            //     result[result.find("{{").unwrap()..result.find("}}").unwrap() + 2].to_string()
-            // );
-        }
+        result.push_str(remaining);
         result
     }
 
@@ -288,5 +298,99 @@ pub fn strip_thoughts(text: &String) -> String {
             .to_string();
     } else {
         return text.clone();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_strip_thoughts() {
+        let input = "<think>this is a thought</think>Hello World".to_string();
+        let expected = "Hello World".to_string();
+        assert_eq!(strip_thoughts(&input), expected);
+    }
+
+    #[test]
+    fn test_strip_thoughts_no_thoughts() {
+        let input = "Hello World".to_string();
+        let expected = "Hello World".to_string();
+        assert_eq!(strip_thoughts(&input), expected);
+    }
+
+    #[test]
+    fn test_replace_single_template() {
+        let mut controller = BarkController::new();
+        let id = VariableId::LastOutput;
+        controller
+            .text_variables
+            .insert(id, "Hello world".to_string());
+        let line = "{{last_output}}";
+        let replaced = controller.replace_template_variables(line);
+        assert_eq!(replaced, "Hello world");
+    }
+
+    #[test]
+    fn test_replace_multiple_templates() {
+        let mut controller = BarkController::new();
+        let id1 = VariableId::LastOutput;
+        let id2 = VariableId::Accumulator;
+        controller
+            .text_variables
+            .insert(id1, "Hello world".to_string());
+        controller
+            .text_variables
+            .insert(id2, "Goodbye world".to_string());
+
+        let line = "{{last_output}} and {{accumulator}}";
+        let replaced = controller.replace_template_variables(line);
+        assert_eq!(replaced, "Hello world and Goodbye world");
+    }
+
+    #[test]
+    fn test_replace_templates_recursive() {
+        let mut controller = BarkController::new();
+        let id1 = VariableId::LastOutput;
+        let id2 = VariableId::Accumulator;
+        controller
+            .text_variables
+            .insert(id1, "{{accumulator}}".to_string());
+        controller
+            .text_variables
+            .insert(id2, "Goodbye world".to_string());
+        let line = "{{last_output}} and {{accumulator}}!";
+        let replaced = controller.replace_template_variables(line);
+        assert_eq!(replaced, "Goodbye world and Goodbye world!");
+    }
+
+    #[test]
+    fn test_replace_templates_loop_detection() {
+        let mut controller = BarkController::new();
+        let id1 = VariableId::LastOutput;
+        let id2 = VariableId::Accumulator;
+        // Create a loop: last_output -> accumulator -> last_output
+        controller
+            .text_variables
+            .insert(id1, "{{accumulator}}".to_string());
+        controller
+            .text_variables
+            .insert(id2, "{{last_output}}".to_string());
+        let line = "{{last_output}}";
+        let replaced = controller.replace_template_variables(line);
+        assert_eq!(replaced, "<<WARNING:LOOP>>");
+    }
+
+    #[test]
+    fn test_replace_templates_self_reference() {
+        let mut controller = BarkController::new();
+        let id = VariableId::LastOutput;
+        // Create self-reference loop
+        controller
+            .text_variables
+            .insert(id, "I am {{last_output}}".to_string());
+        let line = "{{last_output}}";
+        let replaced = controller.replace_template_variables(line);
+        assert_eq!(replaced, "I am <<WARNING:LOOP>>");
     }
 }
