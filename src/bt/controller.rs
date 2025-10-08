@@ -25,11 +25,13 @@ impl BarkController {
 
     /// Replaces template variables in the given line.
     ///
-    /// Supports two formats:
+    /// Supports three formats:
     /// - `{{VariableId}}` - Simple variable replacement
     /// - `{{VariableId|default text value}}` - Variable replacement with default value
+    /// - `{{VariableId|=ReplacementVariableId}}` - Variable replacement with fallback to another variable
     ///
     /// If the variable is empty or not found, the default value (if provided) will be used.
+    /// For the fallback format, if VariableId is empty, ReplacementVariableId will be used instead.
     /// Built-in variables: accumulator, loop_value, last_output, pre_embed
     /// User variables: any other string
     pub fn replace_template_variables(&self, line: &str) -> String {
@@ -45,8 +47,9 @@ impl BarkController {
             result.push_str(&remaining[..start]);
             let key = &remaining[start + 2..end - 2];
 
-            // Parse key and default value (format: "VariableId|default text value")
-            let (variable_key, default_value) = if let Some(pipe_pos) = key.find('|') {
+            // Parse key and default/fallback value
+            // Supports: "VariableId|default text value" and "VariableId|=ReplacementVariableId"
+            let (variable_key, fallback_spec) = if let Some(pipe_pos) = key.find('|') {
                 (&key[..pipe_pos], Some(&key[pipe_pos + 1..]))
             } else {
                 (key, None)
@@ -73,7 +76,41 @@ impl BarkController {
                         self.replace_template_variables_helper(&s, new_visited)
                     })
                     .filter(|s| !s.is_empty()) // Only use the value if it's not empty
-                    .or_else(|| default_value.map(|d| d.to_string())) // Use default if variable is empty
+                    .or_else(|| {
+                        // Handle fallback specification
+                        if let Some(fallback) = fallback_spec {
+                            if fallback.starts_with('=') {
+                                // Variable fallback format: {{VariableId|=ReplacementVariableId}}
+                                let replacement_key = &fallback[1..];
+                                let replacement_variable_id = match replacement_key {
+                                    "accumulator" => VariableId::Accumulator,
+                                    "loop_value" => VariableId::LoopValue,
+                                    "last_output" => VariableId::LastOutput,
+                                    "pre_embed" => VariableId::PreEmbed,
+                                    other => VariableId::User(other.to_string()),
+                                };
+
+                                // Check for loops with replacement variable
+                                if visited.contains(&replacement_variable_id) {
+                                    Some("<<WARNING:LOOP>>".to_string())
+                                } else {
+                                    self.text_variables
+                                        .get(&replacement_variable_id)
+                                        .cloned()
+                                        .map(|s| {
+                                            let mut new_visited = visited.clone();
+                                            new_visited.push(replacement_variable_id);
+                                            self.replace_template_variables_helper(&s, new_visited)
+                                        })
+                                }
+                            } else {
+                                // Default text value format: {{VariableId|default text value}}
+                                Some(fallback.to_string())
+                            }
+                        } else {
+                            None
+                        }
+                    })
                     .unwrap_or("".to_string());
                 result.push_str(&replacement);
             }
@@ -485,5 +522,101 @@ mod tests {
         let replaced = controller.replace_template_variables(line);
         // Should use everything after the first pipe as the default
         assert_eq!(replaced, "option1|option2");
+    }
+
+    #[test]
+    fn test_replace_template_with_variable_fallback() {
+        let mut controller = BarkController::new();
+        let fallback_id = VariableId::User("fallback_var".to_string());
+        controller
+            .text_variables
+            .insert(fallback_id, "fallback value".to_string());
+        let line = "{{missing_var|=fallback_var}}";
+        let replaced = controller.replace_template_variables(line);
+        assert_eq!(replaced, "fallback value");
+    }
+
+    #[test]
+    fn test_replace_template_with_variable_fallback_existing_var() {
+        let mut controller = BarkController::new();
+        let primary_id = VariableId::User("primary_var".to_string());
+        let fallback_id = VariableId::User("fallback_var".to_string());
+        controller
+            .text_variables
+            .insert(primary_id, "primary value".to_string());
+        controller
+            .text_variables
+            .insert(fallback_id, "fallback value".to_string());
+        let line = "{{primary_var|=fallback_var}}";
+        let replaced = controller.replace_template_variables(line);
+        assert_eq!(replaced, "primary value");
+    }
+
+    #[test]
+    fn test_replace_template_with_variable_fallback_empty_var() {
+        let mut controller = BarkController::new();
+        let primary_id = VariableId::User("empty_var".to_string());
+        let fallback_id = VariableId::User("fallback_var".to_string());
+        controller.text_variables.insert(primary_id, "".to_string());
+        controller
+            .text_variables
+            .insert(fallback_id, "fallback value".to_string());
+        let line = "{{empty_var|=fallback_var}}";
+        let replaced = controller.replace_template_variables(line);
+        assert_eq!(replaced, "fallback value");
+    }
+
+    #[test]
+    fn test_replace_template_with_variable_fallback_builtin_vars() {
+        let mut controller = BarkController::new();
+        controller
+            .text_variables
+            .insert(VariableId::LastOutput, "".to_string());
+        controller
+            .text_variables
+            .insert(VariableId::Accumulator, "accumulated data".to_string());
+        let line = "{{last_output|=accumulator}}";
+        let replaced = controller.replace_template_variables(line);
+        assert_eq!(replaced, "accumulated data");
+    }
+
+    #[test]
+    fn test_replace_template_with_variable_fallback_missing_both() {
+        let controller = BarkController::new();
+        let line = "{{missing_var|=missing_fallback}}";
+        let replaced = controller.replace_template_variables(line);
+        assert_eq!(replaced, "");
+    }
+
+    #[test]
+    fn test_replace_template_with_variable_fallback_recursive() {
+        let mut controller = BarkController::new();
+        let primary_id = VariableId::User("primary".to_string());
+        let fallback_id = VariableId::User("fallback".to_string());
+        let nested_id = VariableId::User("nested".to_string());
+        controller.text_variables.insert(primary_id, "".to_string());
+        controller
+            .text_variables
+            .insert(fallback_id, "Hello {{nested}}!".to_string());
+        controller
+            .text_variables
+            .insert(nested_id, "World".to_string());
+        let line = "{{primary|=fallback}}";
+        let replaced = controller.replace_template_variables(line);
+        assert_eq!(replaced, "Hello World!");
+    }
+
+    #[test]
+    fn test_replace_template_with_variable_fallback_loop_detection() {
+        let mut controller = BarkController::new();
+        let primary_id = VariableId::User("primary".to_string());
+        let fallback_id = VariableId::User("fallback".to_string());
+        controller.text_variables.insert(primary_id, "".to_string());
+        controller
+            .text_variables
+            .insert(fallback_id, "{{primary|=fallback}}".to_string());
+        let line = "{{primary|=fallback}}";
+        let replaced = controller.replace_template_variables(line);
+        assert_eq!(replaced, "<<WARNING:LOOP>>");
     }
 }
