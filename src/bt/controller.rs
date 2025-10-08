@@ -23,6 +23,15 @@ impl BarkController {
         }
     }
 
+    /// Replaces template variables in the given line.
+    ///
+    /// Supports two formats:
+    /// - `{{VariableId}}` - Simple variable replacement
+    /// - `{{VariableId|default text value}}` - Variable replacement with default value
+    ///
+    /// If the variable is empty or not found, the default value (if provided) will be used.
+    /// Built-in variables: accumulator, loop_value, last_output, pre_embed
+    /// User variables: any other string
     pub fn replace_template_variables(&self, line: &str) -> String {
         self.replace_template_variables_helper(line, Vec::new())
     }
@@ -35,7 +44,15 @@ impl BarkController {
             let end = remaining.find("}}").unwrap() + 2;
             result.push_str(&remaining[..start]);
             let key = &remaining[start + 2..end - 2];
-            let variable_id = match key {
+
+            // Parse key and default value (format: "VariableId|default text value")
+            let (variable_key, default_value) = if let Some(pipe_pos) = key.find('|') {
+                (&key[..pipe_pos], Some(&key[pipe_pos + 1..]))
+            } else {
+                (key, None)
+            };
+
+            let variable_id = match variable_key {
                 "accumulator" => VariableId::Accumulator,
                 "loop_value" => VariableId::LoopValue,
                 "last_output" => VariableId::LastOutput,
@@ -55,6 +72,8 @@ impl BarkController {
                         new_visited.push(variable_id);
                         self.replace_template_variables_helper(&s, new_visited)
                     })
+                    .filter(|s| !s.is_empty()) // Only use the value if it's not empty
+                    .or_else(|| default_value.map(|d| d.to_string())) // Use default if variable is empty
                     .unwrap_or("".to_string());
                 result.push_str(&replacement);
             }
@@ -392,5 +411,79 @@ mod tests {
         let line = "{{last_output}}";
         let replaced = controller.replace_template_variables(line);
         assert_eq!(replaced, "I am <<WARNING:LOOP>>");
+    }
+
+    #[test]
+    fn test_replace_template_with_default_value() {
+        let controller = BarkController::new();
+        let line = "{{missing_var|default text}}";
+        let replaced = controller.replace_template_variables(line);
+        assert_eq!(replaced, "default text");
+    }
+
+    #[test]
+    fn test_replace_template_with_default_value_existing_var() {
+        let mut controller = BarkController::new();
+        let id = VariableId::User("test_var".to_string());
+        controller
+            .text_variables
+            .insert(id, "actual value".to_string());
+        let line = "{{test_var|default text}}";
+        let replaced = controller.replace_template_variables(line);
+        assert_eq!(replaced, "actual value");
+    }
+
+    #[test]
+    fn test_replace_template_with_default_value_empty_var() {
+        let mut controller = BarkController::new();
+        let id = VariableId::User("empty_var".to_string());
+        controller.text_variables.insert(id, "".to_string());
+        let line = "{{empty_var|default text}}";
+        let replaced = controller.replace_template_variables(line);
+        assert_eq!(replaced, "default text");
+    }
+
+    #[test]
+    fn test_replace_template_with_default_value_built_in_var() {
+        let mut controller = BarkController::new();
+        controller
+            .text_variables
+            .insert(VariableId::LastOutput, "".to_string());
+        let line = "{{last_output|no output yet}}";
+        let replaced = controller.replace_template_variables(line);
+        assert_eq!(replaced, "no output yet");
+    }
+
+    #[test]
+    fn test_replace_template_with_default_value_mixed() {
+        let mut controller = BarkController::new();
+        let id = VariableId::User("name".to_string());
+        controller.text_variables.insert(id, "Alice".to_string());
+        let line = "Hello {{name|Anonymous}}! Your score is {{score|0}}.";
+        let replaced = controller.replace_template_variables(line);
+        assert_eq!(replaced, "Hello Alice! Your score is 0.");
+    }
+
+    #[test]
+    fn test_replace_template_with_default_value_recursive() {
+        let mut controller = BarkController::new();
+        let id1 = VariableId::User("greeting".to_string());
+        let id2 = VariableId::User("name".to_string());
+        controller
+            .text_variables
+            .insert(id1, "Hello {{name|World}}!".to_string());
+        controller.text_variables.insert(id2, "".to_string()); // Empty name
+        let line = "{{greeting|Hi there!}}";
+        let replaced = controller.replace_template_variables(line);
+        assert_eq!(replaced, "Hello World!");
+    }
+
+    #[test]
+    fn test_replace_template_with_default_value_containing_pipe() {
+        let controller = BarkController::new();
+        let line = "{{missing_var|option1|option2}}";
+        let replaced = controller.replace_template_variables(line);
+        // Should use everything after the first pipe as the default
+        assert_eq!(replaced, "option1|option2");
     }
 }
